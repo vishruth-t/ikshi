@@ -1,14 +1,17 @@
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QLineEdit, QFormLayout, QFrame
+    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QLineEdit, QFormLayout, QFrame, QComboBox
 )
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, Signal
 from ui.widgets.camera_view import CameraViewWidget
 from ui.widgets.attendance_table import AttendanceTableWidget
 from ui.widgets.status_card import StatusCardWidget
 from attendance.session_manager import SessionManager
 from database.repositories import AttendanceRepository, StudentRepository
+from config.settings import settings
 
 class AttendancePage(QWidget):
+    camera_source_changed = Signal(str)
+
     def __init__(
         self,
         camera_view_widget: CameraViewWidget,
@@ -32,15 +35,54 @@ class AttendancePage(QWidget):
         left_col.setSpacing(10)
 
         cam_header = QHBoxLayout()
+        cam_header.setSpacing(8)
+
         cam_title = QLabel("Live Recognition Feed")
         cam_title.setStyleSheet("font-weight: 600; font-size: 14px; color: #F0F6FC;")
 
         cam_header.addWidget(cam_title)
         cam_header.addStretch()
+
+        # Quick Camera Selector
+        lbl_cam_src = QLabel("Camera:")
+        lbl_cam_src.setStyleSheet("color: #8B949E; font-size: 11px; font-weight: 500;")
+        cam_header.addWidget(lbl_cam_src)
+
+        self.cam_source_combo = QComboBox()
+        self.cam_source_combo.addItem("Camera 0 (Default)", "0")
+        self.cam_source_combo.addItem("Camera 1 (Secondary)", "1")
+        self.cam_source_combo.addItem("Camera 2", "2")
+        self.cam_source_combo.addItem("Phone USB (8080)", "http://127.0.0.1:8080/video")
+        self.cam_source_combo.addItem("Phone Wi-Fi (8080)", "http://192.168.1.100:8080/video")
+
+        current_src = str(settings.camera_source or settings.camera_index)
+        for idx in range(self.cam_source_combo.count()):
+            if self.cam_source_combo.itemData(idx) == current_src:
+                self.cam_source_combo.setCurrentIndex(idx)
+                break
+
+        self.cam_source_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #161B22;
+                color: #F0F6FC;
+                border: 1px solid #30363D;
+                border-radius: 4px;
+                padding: 3px 8px;
+                font-size: 11px;
+                font-weight: 500;
+            }
+            QComboBox:focus {
+                border: 1px solid #cba6f7;
+            }
+        """)
+        self.cam_source_combo.currentIndexChanged.connect(self._on_cam_source_changed)
+        cam_header.addWidget(self.cam_source_combo)
+
         left_col.addLayout(cam_header)
 
         left_col.addWidget(self.camera_view, stretch=1)
         layout.addLayout(left_col, stretch=6)
+
 
         # Right Column: Controls & Real-Time Stats
         right_col = QVBoxLayout()
@@ -235,5 +277,24 @@ class AttendancePage(QWidget):
                 """)
                 self.input_class.setEnabled(True)
                 self.input_subject.setEnabled(True)
+
+    def _on_cam_source_changed(self, index: int):
+        new_src = self.cam_source_combo.itemData(index)
+        if new_src is not None:
+            settings.camera_source = str(new_src)
+            if str(new_src).isdigit():
+                settings.camera_index = int(new_src)
+            settings.save()
+            self.camera_source_changed.emit(str(new_src))
+
+    def sync_camera_source(self):
+        current_src = str(settings.camera_source or settings.camera_index)
+        for idx in range(self.cam_source_combo.count()):
+            if self.cam_source_combo.itemData(idx) == current_src:
+                self.cam_source_combo.blockSignals(True)
+                self.cam_source_combo.setCurrentIndex(idx)
+                self.cam_source_combo.blockSignals(False)
+                break
+
 
 

@@ -1,9 +1,9 @@
-# FaceAttend — Local OpenCV SFace Desktop Attendance System
+# ikshi — Local OpenCV SFace Desktop Attendance System
 
-**FaceAttend** is a production-ready, modular desktop application for real-time automated face-recognition attendance tracking. It uses a webcam, OpenCV YuNet face detection, **OpenCV SFace** (`cv2.FaceRecognizerSF`) face recognition, PySide6 for GUI, and SQLite for persistence.
+**ikshi** is a production-ready, modular desktop application for real-time automated face-recognition attendance tracking. It uses a webcam, OpenCV YuNet face detection, **OpenCV SFace** (`cv2.FaceRecognizerSF`) face recognition, PySide6 for GUI, and SQLite for persistence.
 
 > [!IMPORTANT]
-> **Strict Technology Constraint**: FaceAttend operates 100% locally and does **NOT** use Hugging Face, PyTorch, Transformers, or external cloud APIs. All face detection and recognition operations run locally using OpenCV DNN (`cv2.FaceDetectorYN` and `cv2.FaceRecognizerSF`).
+> **Strict Technology Constraint**: ikshi operates 100% locally and does **NOT** use Hugging Face, PyTorch, Transformers, or external cloud APIs. All face detection and recognition operations run locally using OpenCV DNN (`cv2.FaceDetectorYN` and `cv2.FaceRecognizerSF`).
 
 ---
 
@@ -22,7 +22,8 @@
 ## Project Structure
 
 ```text
-face_attendance/
+ikshi/
+
 │
 ├── app.py                     # Entry point & application bootstrapper
 ├── config/
@@ -119,7 +120,7 @@ Expected ONNX files:
 
 ## Running the Application
 
-Launch FaceAttend:
+Launch ikshi:
 
 ```bash
 python app.py
@@ -139,13 +140,13 @@ pytest
 
 ## Using Mobile Phone as Webcam (Wi-Fi / USB)
 
-FaceAttend natively supports connecting your smartphone camera via local Wi-Fi or USB:
+ikshi natively supports connecting your smartphone camera via local Wi-Fi or USB:
 
 ### Option A: Direct USB Cable via ADB (Zero Lag, No Wi-Fi, No Iriun)
 1. Enable **USB Debugging** in *Settings → Developer Options* on your Android phone.
 2. Connect your phone to your PC with a USB cable (allow debugging prompt on phone).
 3. Open **IP Webcam** or **DroidCam** on your phone and start the server.
-4. In FaceAttend **⚙️ Settings**, click **⚡ Auto-Connect USB (IP Webcam 8080)** or **(DroidCam 4747)**, or in terminal run:
+4. In ikshi **⚙️ Settings**, click **⚡ Auto-Connect USB (IP Webcam 8080)** or **(DroidCam 4747)**, or in terminal run:
    ```bash
    adb forward tcp:8080 tcp:8080
    ```
@@ -160,7 +161,8 @@ FaceAttend natively supports connecting your smartphone camera via local Wi-Fi o
 ### Option C: Wi-Fi Stream
 1. Connect phone and PC to the same Wi-Fi.
 2. Start server in IP Webcam or DroidCam on your phone.
-3. In FaceAttend Settings, enter `http://<PHONE_IP>:8080/video` and click **Save & Apply System Settings**.
+3. In ikshi Settings, enter `http://<PHONE_IP>:8080/video` and click **Save & Apply System Settings**.
+
 
 ---
 

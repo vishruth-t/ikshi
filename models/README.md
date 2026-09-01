@@ -1,6 +1,7 @@
-# FaceAttend - Model Setup Instructions
+# ikshi - Model Setup Instructions
 
-FaceAttend relies strictly on **OpenCV DNN** ONNX models for local face detection and recognition.
+ikshi relies strictly on **OpenCV DNN** ONNX models for local face detection and recognition.
+
 
 ## Required Models
 

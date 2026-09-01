@@ -1,7 +1,8 @@
 """
-Centralized constants for FaceAttend application.
+Centralized constants for ikshi application.
 Maintains standardized Academic Years and Departments across the system.
 """
+
 
 DEFAULT_ACADEMIC_YEARS = [
     "2024–25",

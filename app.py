@@ -1,15 +1,23 @@
 import sys
 import os
 import logging
+import cv2
+
+try:
+    cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
+except Exception:
+    pass
+
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 from models.download_models import ensure_models_exist
 from ui.main_window import MainWindow
 
+
 def setup_logging():
     log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, "face_attend.log")
+    log_file = os.path.join(log_dir, "ikshi.log")
 
     logging.basicConfig(
         level=logging.INFO,
@@ -20,7 +28,7 @@ def setup_logging():
         ]
     )
     logging.info("==========================================")
-    logging.info("Starting FaceAttend Desktop Application...")
+    logging.info("Starting ikshi Desktop Application...")
     logging.info("==========================================")
 
 def main():
@@ -31,10 +39,11 @@ def main():
     ensure_models_exist()
 
     app = QApplication(sys.argv)
-    app.setApplicationName("FaceAttend")
-    app.setOrganizationName("FaceAttend")
+    app.setApplicationName("ikshi")
+    app.setOrganizationName("ikshi")
 
     window = MainWindow()
+
     window.show()
 
     sys.exit(app.exec())

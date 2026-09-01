@@ -25,8 +25,9 @@ from config.constants import DEFAULT_ACADEMIC_YEARS, DEFAULT_DEPARTMENTS
 
 @dataclass
 class AppSettings:
-    app_name: str = "FaceAttend"
+    app_name: str = "ikshi"
     default_academic_year: str = DEFAULT_ACADEMIC_YEARS[1] # 2025–26 default
+
     default_department: str = DEFAULT_DEPARTMENTS[0] # Computer Science & Engineering default
 
     camera_index: int = 0

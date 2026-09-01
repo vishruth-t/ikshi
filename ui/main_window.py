@@ -36,8 +36,9 @@ logger = logging.getLogger(__name__)
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("FaceAttend - Local Desktop Attendance System")
+        self.setWindowTitle("ikshi - Local Desktop Attendance System")
         self.resize(1280, 800)
+
         self.setMinimumSize(480, 480)
 
         # 1. Initialize Database & Repositories
@@ -98,11 +99,13 @@ class MainWindow(QMainWindow):
         # Connect inter-page signals
         self.page_students.request_re_enroll.connect(self.start_re_enrollment)
         self.page_settings.settings_saved.connect(self.apply_saved_settings)
+        self.page_attendance.camera_source_changed.connect(self.change_camera_source)
 
         # Status Bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("FaceAttend Ready | All Systems Operational")
+        self.status_bar.showMessage("ikshi Ready | All Systems Operational")
+
 
 
         # 6. Setup Worker Threads (Camera & Recognition)
@@ -208,7 +211,8 @@ class MainWindow(QMainWindow):
         brand_row = QHBoxLayout()
         brand_row.setSpacing(8)
         
-        self.brand_label = QLabel("FaceAttend")
+        self.brand_label = QLabel("ikshi")
+
         self.brand_label.setStyleSheet("font-size: 16px; font-weight: 700; color: #F0F6FC; background: transparent; letter-spacing: -0.2px;")
         
         self.btn_toggle_sidebar = QPushButton("☰")
@@ -274,7 +278,7 @@ class MainWindow(QMainWindow):
 
             for full_text, short_icon, tooltip, index in items:
                 self.nav_items_data.append((full_text, short_icon, tooltip, index))
-                btn = QPushButton(full_text)
+                btn = QPushButton(full_text.replace("&", "&&"))
                 btn.setToolTip(tooltip)
                 btn.setCheckable(True)
                 btn.clicked.connect(lambda _, idx=index: self.switch_page(idx))
@@ -305,7 +309,7 @@ class MainWindow(QMainWindow):
             for lbl in self.section_labels:
                 lbl.setVisible(True)
             for idx, btn in enumerate(self.nav_buttons):
-                btn.setText(self.nav_items_data[idx][0]) # Full text
+                btn.setText(self.nav_items_data[idx][0].replace("&", "&&")) # Full text
                 btn.setStyleSheet("text-align: left; padding: 10px 14px; font-size: 13px; margin: 2px 10px;")
 
 
@@ -343,6 +347,13 @@ class MainWindow(QMainWindow):
         self.page_registration.load_for_re_enroll(student)
         self.status_bar.showMessage(f"Re-enrolling face samples for {student.name} ({student.student_number})", 6000)
 
+    @Slot(str)
+    def change_camera_source(self, new_source: str):
+        """Handle quick camera source change from Attendance header."""
+        if hasattr(self, "camera_worker"):
+            self.camera_worker.update_source(new_source)
+        self.status_bar.showMessage(f"Camera source changed to: {new_source}", 4000)
+
     @Slot()
     def apply_saved_settings(self):
         """Apply newly saved settings dynamically."""
@@ -350,7 +361,10 @@ class MainWindow(QMainWindow):
             self.recognition_worker.update_tracker_settings()
         if hasattr(self, "camera_worker"):
             self.camera_worker.update_source(settings.get_capture_source())
+        if hasattr(self, "page_attendance"):
+            self.page_attendance.sync_camera_source()
         self.status_bar.showMessage(f"Settings applied. Camera source: {settings.get_capture_source()}", 4000)
+
 
     def _init_workers(self):
         # 1. Camera Worker Thread

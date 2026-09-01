@@ -268,8 +268,9 @@ class SettingsPage(QWidget):
         if cam_src.isdigit():
             settings.camera_index = int(cam_src)
         
-        settings.app_name = self.input_app_name.text().strip() or "FaceAttend"
+        settings.app_name = self.input_app_name.text().strip() or "ikshi"
         settings.default_department = self.input_default_dept.currentText()
+
         settings.default_academic_year = self.input_default_year.currentText()
         settings.recognition_threshold = self.input_threshold.value()
         settings.confirmation_frames = self.input_frames.value()

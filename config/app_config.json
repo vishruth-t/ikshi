@@ -1,9 +1,9 @@
 {
-    "app_name": "FaceAttend",
+    "app_name": "ikshi",
     "default_academic_year": "2025\u201326",
     "default_department": "Computer Science & Engineering",
-    "camera_index": 0,
-    "camera_source": "0",
+    "camera_index": 1,
+    "camera_source": "1",
     "camera_fps": 30,
     "camera_width": 1280,
     "camera_height": 720,
