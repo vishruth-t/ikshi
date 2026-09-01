@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
         
         self.page_dashboard = DashboardPage(self.session_manager, self.student_repo, self.attendance_repo)
         self.page_attendance = AttendancePage(self.camera_view, self.session_manager, self.attendance_repo, self.student_repo)
-        self.page_registration = RegistrationPage(self.enrollment_service, self.camera_view)
+        self.page_registration = RegistrationPage(self.enrollment_service)
         self.page_students = StudentsPage(self.student_repo)
         self.page_reports = ReportsPage(self.attendance_repo)
         self.page_settings = SettingsPage()

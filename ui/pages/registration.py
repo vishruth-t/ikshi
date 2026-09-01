@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
@@ -6,13 +7,14 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Slot
 from ui.widgets.camera_view import CameraViewWidget
 from enrollment.enrollment_service import EnrollmentService
-from database.models import Student
+from database.models import Student, RecognitionResult
+from vision.image_utils import validate_face_sample
 
 class RegistrationPage(QWidget):
-    def __init__(self, enrollment_service: EnrollmentService, camera_view_widget: CameraViewWidget, parent=None):
+    def __init__(self, enrollment_service: EnrollmentService, parent=None):
         super().__init__(parent)
         self.enrollment_service = enrollment_service
-        self.camera_view = camera_view_widget
+        self.camera_view = CameraViewWidget(self)
         self.captured_features = []
         self.current_frame = None
 
@@ -36,7 +38,29 @@ class RegistrationPage(QWidget):
 
     @Slot(np.ndarray)
     def handle_camera_frame(self, frame: np.ndarray):
+        if frame is None:
+            return
         self.current_frame = frame
+
+        # Only process & render video feed if user is on Step 2 (Capture step)
+        if self.wizard_stack.currentIndex() == 1:
+            frame_display = frame.copy()
+            # Perform live face detection overlay for real-time visual feedback
+            if self.enrollment_service.detector and self.enrollment_service.detector.is_loaded():
+                faces = self.enrollment_service.detector.detect(frame)
+                results = []
+                for face in faces:
+                    is_valid, msg = validate_face_sample(frame, face.bbox, len(faces))
+                    res = RecognitionResult(
+                        name="Sample Target" if is_valid else "Adjust Position",
+                        similarity=face.score,
+                        bbox=face.bbox,
+                        confirmed=is_valid
+                    )
+                    results.append(res)
+                self.camera_view.update_recognition_results(results)
+
+            self.camera_view.update_frame(frame_display)
 
     def _init_step1_info(self):
         step1 = QWidget()
@@ -101,7 +125,7 @@ class RegistrationPage(QWidget):
         l.addWidget(self.progress_bar)
 
         self.quality_feedback_label = QLabel("Position face in camera frame and click 'Capture Sample'.")
-        self.quality_feedback_label.setStyleSheet("color: #F59E0B; font-weight: bold;")
+        self.quality_feedback_label.setStyleSheet("color: #F59E0B; font-weight: bold; font-size: 14px;")
         l.addWidget(self.quality_feedback_label)
 
         l.addWidget(self.camera_view, stretch=1)
