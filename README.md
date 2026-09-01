@@ -1,78 +1,89 @@
-# ikshi — Local OpenCV SFace Desktop Attendance System
+# ikshi — On-Device Face Recognition Desktop Attendance System
 
-**ikshi** is a production-ready, modular desktop application for real-time automated face-recognition attendance tracking. It uses a webcam, OpenCV YuNet face detection, **OpenCV SFace** (`cv2.FaceRecognizerSF`) face recognition, PySide6 for GUI, and SQLite for persistence.
+**ikshi** is a high-performance, privacy-focused desktop application for automated real-time face recognition attendance tracking. Built with **PySide6 (Qt6)**, **OpenCV YuNet**, **OpenCV SFace**, and **SQLite (WAL mode)**, ikshi operates entirely on-device with zero cloud dependencies.
 
 > [!IMPORTANT]
-> **Strict Technology Constraint**: ikshi operates 100% locally and does **NOT** use Hugging Face, PyTorch, Transformers, or external cloud APIs. All face detection and recognition operations run locally using OpenCV DNN (`cv2.FaceDetectorYN` and `cv2.FaceRecognizerSF`).
+> **Strict Technology Constraint**: ikshi operates 100% locally on CPU/GPU via OpenCV DNN. It does **not** rely on Hugging Face, PyTorch, Transformers, or external cloud APIs. All face detection (`cv2.FaceDetectorYN`) and 128-D feature vector extraction (`cv2.FaceRecognizerSF`) run strictly on the local machine.
 
 ---
 
 ## Key Features
 
-- **Local & Private**: Biometric vectors are extracted and processed strictly on device.
-- **Asynchronous Architecture**: Non-blocking Qt background workers (`CameraWorker` and `RecognitionWorker`) keep PySide6 GUI responsive.
-- **3-Step Registration Wizard**: Guided enrollment workflow with multi-angle sample capture (5 samples) and quality validation (blur check, face size, single face).
-- **Temporal Confirmation**: Requires $N$ consecutive identical frame recognitions to prevent false positives and flickering.
-- **Duplicate Prevention**: Application and database-level `UNIQUE(session_id, student_id)` constraints prevent double attendance.
-- **Historical Reports & CSV Exporter**: Filter logs by subject or class and export report data to CSV.
-- **Calibratable Settings**: Configurable camera source, cosine similarity threshold (default 0.70), and temporal confirmation frame count.
+- **100% Local & Private**: Raw photos are never stored. Only 128-dimensional biometric embeddings are stored locally in SQLite (`data/attendance.db`).
+- **Asynchronous Qt Pipeline**: Non-blocking background worker threads (`CameraWorker` and `RecognitionWorker`) ensure an ultra-responsive 30+ FPS GUI.
+- **Smart Camera Auto-Discovery & Quick Switching**: Automatically probes and selects working hardware cameras across indices (`0`–`5`) and allows instant camera/phone switching directly from the live feed header.
+- **Dynamic 3-Step Enrollment Wizard**: Guided multi-angle face enrollment (5 samples) with real-time quality validation (blur check, face size, centering, single-face verification).
+- **Multi-Face Temporal Confirmation**: Multi-target tracking algorithm requiring consecutive identical identity matches to eliminate false positives and bounding box flicker.
+- **Academic Year & Department Management**: Standardized dropdown filters across registration, student directory, and reports.
+- **Exportable Reports**: Filter attendance sessions and student logs by department, academic year, subject, class, or date, and export directly to CSV (UTF-8-BOM formatted).
+- **Minimalist Dark Theme**: Sleek, distraction-free UI styled with `#cba6f7` accenting and high-contrast dark controls.
 
 ---
 
-## Project Structure
+## System Architecture & Project Structure
 
 ```text
 ikshi/
-
 │
-├── app.py                     # Entry point & application bootstrapper
+├── app.py                            # Application entry point & logger initialization
+│
 ├── config/
-│   ├── settings.py            # App settings (thresholds, model paths, camera index)
-│   └── app_config.json        # Saved user settings
-│
-├── camera/
-│   └── camera_manager.py      # Camera capture manager
+│   ├── constants.py                  # Standard departments, academic years & colors
+│   ├── settings.py                   # Centralized runtime configuration & path resolution
+│   └── app_config.json               # Persisted user settings
 │
 ├── vision/
-│   ├── face_detector.py       # OpenCV YuNet FaceDetectorYN wrapper
-│   ├── face_aligner.py        # SFace alignCrop utilities
-│   └── image_utils.py         # Blur checks, quality validation & Qt image conversion
+│   ├── face_detector.py              # OpenCV YuNet (cv2.FaceDetectorYN) wrapper
+│   ├── face_aligner.py               # SFace alignCrop utilities
+│   └── image_utils.py                # Quality validation, blur checks & Qt conversions
 │
 ├── recognition/
-│   ├── sface_model.py         # OpenCV SFace cv2.FaceRecognizerSF wrapper
-│   ├── matcher.py             # Cosine similarity matcher against DB vectors
-│   └── threshold.py           # Threshold evaluator
+│   ├── sface_model.py                # OpenCV SFace (cv2.FaceRecognizerSF) wrapper
+│   ├── matcher.py                    # Cosine similarity vector matcher
+│   └── threshold.py                  # Similarity thresholds & match evaluations
 │
 ├── enrollment/
-│   └── enrollment_service.py  # Quality validation & sample collector
+│   └── enrollment_service.py         # Multi-sample registration & re-enrollment service
 │
 ├── attendance/
-│   ├── attendance_service.py  # Attendance recording logic & validation
-│   ├── session_manager.py     # Active session tracker & stats aggregator
-│   └── temporal_confirmation.py# Multi-frame (N-frame) temporal filter
+│   ├── attendance_service.py         # Attendance marking logic & session constraints
+│   ├── session_manager.py            # Active session tracker & stats aggregator
+│   └── temporal_confirmation.py      # Multi-frame temporal confirmation tracker
 │
 ├── database/
-│   ├── connection.py          # SQLite connection manager with WAL mode
-│   ├── models.py              # Dataclass schemas (Student, FaceEmbedding, Attendance)
-│   └── repositories.py        # Student, Embedding, Session & Attendance repos
+│   ├── connection.py                 # Thread-safe SQLite connection with WAL mode
+│   ├── models.py                     # Dataclasses (Student, FaceEmbedding, Attendance)
+│   └── repositories.py               # Student, Embedding, Session & Attendance repositories
 │
 ├── reports/
-│   └── exporter.py            # CSV Exporter
+│   └── exporter.py                   # CSV export formatter with UTF-8-BOM
 │
 ├── ui/
-│   ├── main_window.py         # Main Window with sidebar navigation
-│   ├── pages/                 # Dashboard, Attendance, Registration, Students, Reports, Settings
-│   ├── widgets/               # CameraView, AttendanceTable, StudentTable, StatusCard
-│   └── workers/               # CameraWorker & RecognitionWorker QThreads
+│   ├── main_window.py                # Main shell, collapsible sidebar & thread manager
+│   ├── pages/
+│   │   ├── attendance.py             # Merged Live Attendance feed, session control & metrics
+│   │   ├── students.py               # Student directory with search & filters
+│   │   ├── reports.py                # Historical attendance logs & CSV export
+│   │   ├── registration.py           # 3-step student enrollment wizard
+│   │   └── settings.py               # Camera source, thresholds & database backup
+
+│   ├── widgets/
+│   │   ├── camera_view.py            # Video feed with OpenCV box overlays
+│   │   ├── attendance_table.py       # Live attendance roll widget
+│   │   ├── student_table.py          # Student directory table widget
+│   │   └── status_card.py            # Metric summary cards
+│   └── workers/
+│       ├── camera_worker.py          # Video capture QThread with auto-scan & backends
+│       └── recognition_worker.py     # Background face recognition & tracker QThread
 │
 ├── models/
-│   ├── face_detection/        # face_detection_yunet_2023mar.onnx
-│   ├── sface/                 # face_recognition_sface_2021dec.onnx
-│   ├── download_models.py     # ONNX model setup helper script
-│   └── README.md              # Model sources & licenses
+│   ├── face_detection/               # face_detection_yunet_2023mar.onnx
+│   ├── sface/                        # face_recognition_sface_2021dec.onnx
+│   ├── download_models.py            # Automatic ONNX model downloader
+│   └── README.md                     # Model sources and licensing
 │
-├── tests/                     # Automated test suite (database, services, recognition)
-├── requirements.txt           # Dependency requirements
+├── tests/                            # Pytest test suite (37 unit & integration tests)
+├── requirements.txt                  # Python dependencies
 └── README.md
 ```
 
@@ -80,7 +91,11 @@ ikshi/
 
 ## Installation & Setup
 
-### 1. Create Virtual Environment
+### 1. Prerequisites
+- **Python 3.10+** (Python 3.10, 3.11, 3.12, 3.13, or 3.14)
+- A webcam, USB camera, or mobile phone (via USB/Wi-Fi)
+
+### 2. Create Virtual Environment
 
 **Linux / macOS**:
 ```bash
@@ -94,81 +109,70 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 2. Install Dependencies
+### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Launch Application
+### 4. Launch ikshi
 
 ```bash
 python app.py
 ```
-*(Models are automatically verified and downloaded on first startup).*
+
+*(Required OpenCV ONNX models will download automatically to `models/` on the first launch if not already present).*
 
 > [!NOTE]
-> **macOS Users (Camera Permissions)**:
-> When launching on macOS, you must grant Camera access to Terminal / VS Code. If your camera preview is black or unavailable, open **System Settings → Privacy & Security → Camera** and ensure your Terminal application is enabled.
-
-
-Expected ONNX files:
-- `models/face_detection/face_detection_yunet_2023mar.onnx`
-- `models/sface/face_recognition_sface_2021dec.onnx`
+> **macOS Permissions**: When running on macOS, ensure camera access is enabled for your Terminal or IDE under **System Settings → Privacy & Security → Camera**.
 
 ---
 
-## Running the Application
+## Using a Mobile Phone as Camera (USB / Wi-Fi)
 
-Launch ikshi:
+ikshi natively supports using your smartphone as a high-definition webcam without third-party drivers:
 
-```bash
-python app.py
-```
+### Option A: USB via ADB (Zero-Lag & Recommended)
+1. Enable **USB Debugging** in *Settings → Developer Options* on your Android phone.
+2. Connect your phone to your PC via USB cable.
+3. Open **IP Webcam** (or **DroidCam**) on your phone and start the server.
+4. In ikshi **Live Attendance**, select **Phone USB (8080)** from the camera dropdown above the video feed (or click **⚡ Forward Phone USB (8080)** in Settings).
+5. Alternatively, run in terminal:
+   ```bash
+   adb forward tcp:8080 tcp:8080
+   ```
+
+### Option B: Android 14+ Native USB Webcam
+1. Connect your Android 14+ phone via USB cable.
+2. In the USB notification on your phone, choose **Webcam**.
+3. Select **Camera 1** (or **Camera 2**) from the camera dropdown in ikshi.
+
+### Option C: Local Wi-Fi Stream
+1. Connect phone and PC to the same Wi-Fi network.
+2. Start server in IP Webcam on your phone.
+3. In ikshi **⚙️ Settings**, enter `http://<PHONE_IP>:8080/video` and click **Save & Apply Settings**.
 
 ---
 
 ## Running Automated Tests
 
-Run the full pytest suite:
+Run the complete test suite with `pytest`:
 
 ```bash
-pytest
+pytest -v
 ```
 
----
-
-## Using Mobile Phone as Webcam (Wi-Fi / USB)
-
-ikshi natively supports connecting your smartphone camera via local Wi-Fi or USB:
-
-### Option A: Direct USB Cable via ADB (Zero Lag, No Wi-Fi, No Iriun)
-1. Enable **USB Debugging** in *Settings → Developer Options* on your Android phone.
-2. Connect your phone to your PC with a USB cable (allow debugging prompt on phone).
-3. Open **IP Webcam** or **DroidCam** on your phone and start the server.
-4. In ikshi **⚙️ Settings**, click **⚡ Auto-Connect USB (IP Webcam 8080)** or **(DroidCam 4747)**, or in terminal run:
-   ```bash
-   adb forward tcp:8080 tcp:8080
-   ```
-5. Set Camera Source to `http://127.0.0.1:8080/video` (or `4747/video`) and click **Save & Apply System Settings**.
-
-### Option B: Android 14+ Built-in USB Webcam (No Extra Software)
-1. Connect your Android 14+ phone via USB cable.
-2. Pull down notifications, tap **"Charging this device via USB"**, and select **"Webcam"**.
-3. Android acts as a native plug-and-play USB UVC camera.
-4. Set Camera Source to device index `0`, `1`, or `2` in Settings.
-
-### Option C: Wi-Fi Stream
-1. Connect phone and PC to the same Wi-Fi.
-2. Start server in IP Webcam or DroidCam on your phone.
-3. In ikshi Settings, enter `http://<PHONE_IP>:8080/video` and click **Save & Apply System Settings**.
-
+All 37 unit and integration tests verify:
+- OpenCV YuNet & SFace model initialization and embeddings
+- Student CRUD, cascades, and SQLite WAL durability
+- Temporal confirmation multi-face tracking
+- Dynamic face capture prompts and blur validation
+- Department/Year filtering and CSV export
 
 ---
 
-## Privacy & Biometric Data Notice
+## Privacy & Biometric Security Notice
 
-
-1. **Biometric Storage**: Raw student photographs are not stored. Only 128-dimensional floating point feature vectors generated by OpenCV SFace are saved in `data/attendance.db`.
-2. **Access Control**: Database storage is local. Backup and access control should be secured according to institutional policy.
-3. **Data Deletion**: Disabling or deleting a student profile removes their enrolled feature vectors.
+1. **Feature Vectors Only**: Raw facial images and student photos are never saved to disk. Only 128-dimensional floating point vectors are stored.
+2. **Local Isolation**: All recognition and database operations are executed strictly on the local machine with no telemetry or external network calls.
+3. **Data Deletion**: Disabling or deleting a student record removes all associated biometric feature vectors.

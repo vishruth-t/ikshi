@@ -70,11 +70,37 @@ class StudentsPage(QWidget):
                 border-radius: 6px;
                 font-size: 12px;
             }
-            QLineEdit:focus, QComboBox:focus {
+            QLineEdit:focus, QComboBox:focus, QComboBox:on {
                 border: 1px solid #cba6f7;
             }
-
+            QComboBox QAbstractItemView {
+                background-color: #161B22;
+                color: #F0F6FC;
+                selection-background-color: #cba6f7;
+                selection-color: #11111B;
+                border: 1px solid #30363D;
+                border-radius: 6px;
+                padding: 4px;
+                outline: 0;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 26px;
+                padding: 4px 8px;
+                color: #F0F6FC;
+                background-color: transparent;
+                border-radius: 4px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #21262D;
+                color: #F0F6FC;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #cba6f7;
+                color: #11111B;
+                font-weight: 600;
+            }
         """
+
 
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search by name or student ID...")

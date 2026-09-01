@@ -24,9 +24,9 @@ from ui.workers.camera_worker import CameraWorker
 from ui.workers.recognition_worker import RecognitionWorker
 from ui.widgets.camera_view import CameraViewWidget
 
-from ui.pages.dashboard import DashboardPage
 from ui.pages.attendance import AttendancePage
 from ui.pages.registration import RegistrationPage
+
 from ui.pages.students import StudentsPage
 from ui.pages.reports import ReportsPage
 from ui.pages.settings import SettingsPage
@@ -80,18 +80,16 @@ class MainWindow(QMainWindow):
         # Stacked Pages
         self.pages_stack = QStackedWidget()
         
-        self.page_dashboard = DashboardPage(self.session_manager, self.student_repo, self.attendance_repo)
         self.page_attendance = AttendancePage(self.camera_view, self.session_manager, self.attendance_repo, self.student_repo)
-        self.page_registration = RegistrationPage(self.enrollment_service)
         self.page_students = StudentsPage(self.student_repo)
         self.page_reports = ReportsPage(self.attendance_repo)
+        self.page_registration = RegistrationPage(self.enrollment_service)
         self.page_settings = SettingsPage()
 
-        self.pages_stack.addWidget(self.page_dashboard)
         self.pages_stack.addWidget(self.page_attendance)
-        self.pages_stack.addWidget(self.page_registration)
         self.pages_stack.addWidget(self.page_students)
         self.pages_stack.addWidget(self.page_reports)
+        self.pages_stack.addWidget(self.page_registration)
         self.pages_stack.addWidget(self.page_settings)
 
         main_layout.addWidget(self.pages_stack, stretch=1)
@@ -100,6 +98,7 @@ class MainWindow(QMainWindow):
         self.page_students.request_re_enroll.connect(self.start_re_enrollment)
         self.page_settings.settings_saved.connect(self.apply_saved_settings)
         self.page_attendance.camera_source_changed.connect(self.change_camera_source)
+
 
         # Status Bar
         self.status_bar = QStatusBar()
@@ -167,7 +166,49 @@ class MainWindow(QMainWindow):
                 min-width: 24px;
                 border-radius: 4px;
             }
+            QComboBox {
+                background-color: #161B22;
+                color: #F0F6FC;
+                border: 1px solid #30363D;
+                border-radius: 6px;
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            QComboBox:focus, QComboBox:on {
+                border: 1px solid #cba6f7;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #161B22;
+                color: #F0F6FC;
+                selection-background-color: #cba6f7;
+                selection-color: #11111B;
+                border: 1px solid #30363D;
+                border-radius: 6px;
+                padding: 4px;
+                outline: 0;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 26px;
+                padding: 4px 8px;
+                color: #F0F6FC;
+                background-color: transparent;
+                border-radius: 4px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #21262D;
+                color: #F0F6FC;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #cba6f7;
+                color: #11111B;
+                font-weight: 600;
+            }
         """)
+
 
     def _create_sidebar(self) -> QWidget:
         sidebar = QWidget()
@@ -257,16 +298,15 @@ class MainWindow(QMainWindow):
 
         self.nav_sections = [
             ("MAIN", [
-                ("Dashboard", "📊", "Dashboard Overview", 0),
-                ("Live Attendance", "📷", "Live Attendance", 1),
-                ("Student Directory", "👥", "Student Directory", 3),
-                ("Reports & Export", "📈", "Reports & Export", 4),
+                ("Live Attendance", "📷", "Live Attendance & Metrics", 0),
+                ("Student Directory", "👥", "Student Directory", 1),
+                ("Reports & Export", "📈", "Reports & Export", 2),
             ]),
             ("MANAGEMENT", [
-                ("Register Student", "👤", "Register Student", 2),
+                ("Register Student", "👤", "Register Student", 3),
             ]),
             ("SYSTEM", [
-                ("Settings", "⚙️", "System Settings", 5),
+                ("Settings", "⚙️", "System Settings", 4),
             ])
         ]
 
@@ -328,12 +368,10 @@ class MainWindow(QMainWindow):
         for idx, (full_text, short_icon, tooltip, page_idx) in enumerate(self.nav_items_data):
             self.nav_buttons[idx].setChecked(page_idx == index)
 
-
-
         # Manage recognition worker state across pages:
-        # Pause background recognition during registration (index 2) to avoid concurrent camera processing
+        # Pause background recognition during registration (index 3) to avoid concurrent camera processing
         if hasattr(self, "recognition_worker"):
-            self.recognition_worker.set_enabled(index != 2)
+            self.recognition_worker.set_enabled(index != 3)
 
         # Refresh page data on switch
         current_page = self.pages_stack.widget(index)
@@ -343,7 +381,7 @@ class MainWindow(QMainWindow):
     @Slot(object)
     def start_re_enrollment(self, student):
         """Navigate to registration page pre-loaded with student details for re-enrollment."""
-        self.switch_page(2) # Switch to Register Student page
+        self.switch_page(3) # Switch to Register Student page
         self.page_registration.load_for_re_enroll(student)
         self.status_bar.showMessage(f"Re-enrolling face samples for {student.name} ({student.student_number})", 6000)
 
@@ -394,7 +432,7 @@ class MainWindow(QMainWindow):
     def handle_attendance_event(self, message: str, success: bool):
         self.status_bar.showMessage(message, 5000)
         self.page_attendance.refresh()
-        self.page_dashboard.refresh()
+
 
     @Slot(str)
     def handle_camera_error(self, message: str):

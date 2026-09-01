@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QLineEdit, QFormLayout, QFrame, QComboBox
+    QWidget, QHBoxLayout, QVBoxLayout, QGridLayout, QLabel, QPushButton, QLineEdit, QFormLayout, QFrame, QComboBox
 )
 from PySide6.QtCore import Qt, Slot, Signal
 from ui.widgets.camera_view import CameraViewWidget
@@ -26,19 +26,71 @@ class AttendancePage(QWidget):
         self.attendance_repo = attendance_repo
         self.student_repo = student_repo
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(16)
+        main_vbox = QVBoxLayout(self)
+        main_vbox.setContentsMargins(20, 16, 20, 16)
+        main_vbox.setSpacing(14)
 
-        # Left Column: Camera View
+        # 1. Top Header & Metric Cards Row
+        header_container = QWidget()
+        header_layout = QHBoxLayout(header_container)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+
+        title_box = QVBoxLayout()
+        title_box.setSpacing(2)
+        
+        header = QLabel("Live Attendance")
+        header.setStyleSheet("font-size: 18px; font-weight: 700; color: #F0F6FC; letter-spacing: -0.2px;")
+        
+        subtitle = QLabel("Real-time biometric recognition feed and session metrics")
+        subtitle.setStyleSheet("font-size: 12px; color: #8B949E;")
+
+        title_box.addWidget(header)
+        title_box.addWidget(subtitle)
+        header_layout.addLayout(title_box)
+
+        header_layout.addStretch()
+
+        self.session_badge = QLabel("Standby")
+        self.session_badge.setStyleSheet("""
+            background-color: #21262D;
+            color: #8B949E;
+            border: 1px solid #30363D;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+        """)
+        header_layout.addWidget(self.session_badge)
+        main_vbox.addWidget(header_container)
+
+        # 4 Status Cards Row
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(12)
+
+        self.card_active_session = StatusCardWidget("Active Session", "None", "No session running")
+        self.card_present = StatusCardWidget("Present Today", "0", "Students verified")
+        self.card_absent = StatusCardWidget("Unverified", "0", "Students pending")
+        self.card_total = StatusCardWidget("Total Directory", "0", "Enrolled students")
+
+        cards_layout.addWidget(self.card_active_session)
+        cards_layout.addWidget(self.card_present)
+        cards_layout.addWidget(self.card_absent)
+        cards_layout.addWidget(self.card_total)
+        main_vbox.addLayout(cards_layout)
+
+        # 2. Main Split Area: Camera & Session Controls (Left) | Live Roll (Right)
+        split_layout = QHBoxLayout()
+        split_layout.setSpacing(16)
+
+        # Left Column: Camera View & Session Controls
         left_col = QVBoxLayout()
         left_col.setSpacing(10)
 
         cam_header = QHBoxLayout()
         cam_header.setSpacing(8)
 
-        cam_title = QLabel("Live Recognition Feed")
-        cam_title.setStyleSheet("font-weight: 600; font-size: 14px; color: #F0F6FC;")
+        cam_title = QLabel("Recognition Feed")
+        cam_title.setStyleSheet("font-weight: 600; font-size: 13px; color: #F0F6FC;")
 
         cam_header.addWidget(cam_title)
         cam_header.addStretch()
@@ -67,26 +119,46 @@ class AttendancePage(QWidget):
                 color: #F0F6FC;
                 border: 1px solid #30363D;
                 border-radius: 4px;
-                padding: 3px 8px;
+                padding: 4px 8px;
                 font-size: 11px;
                 font-weight: 500;
             }
-            QComboBox:focus {
+            QComboBox:focus, QComboBox:on {
                 border: 1px solid #cba6f7;
             }
+            QComboBox QAbstractItemView {
+                background-color: #161B22;
+                color: #F0F6FC;
+                selection-background-color: #cba6f7;
+                selection-color: #11111B;
+                border: 1px solid #30363D;
+                border-radius: 4px;
+                padding: 4px;
+                outline: 0;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 24px;
+                padding: 4px 8px;
+                color: #F0F6FC;
+                background-color: transparent;
+                border-radius: 3px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #21262D;
+                color: #F0F6FC;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #cba6f7;
+                color: #11111B;
+                font-weight: 600;
+            }
         """)
+
         self.cam_source_combo.currentIndexChanged.connect(self._on_cam_source_changed)
         cam_header.addWidget(self.cam_source_combo)
 
         left_col.addLayout(cam_header)
-
         left_col.addWidget(self.camera_view, stretch=1)
-        layout.addLayout(left_col, stretch=6)
-
-
-        # Right Column: Controls & Real-Time Stats
-        right_col = QVBoxLayout()
-        right_col.setSpacing(14)
 
         # Session Setup Card
         self.session_card = QFrame()
@@ -98,14 +170,10 @@ class AttendancePage(QWidget):
             }
         """)
         card_layout = QVBoxLayout(self.session_card)
-        card_layout.setContentsMargins(16, 14, 16, 14)
-        card_layout.setSpacing(10)
+        card_layout.setContentsMargins(14, 12, 14, 12)
+        card_layout.setSpacing(8)
 
-        card_title = QLabel("Session Control")
-        card_title.setStyleSheet("font-size: 12px; font-weight: 600; color: #8B949E; border: none; background: transparent;")
-        card_layout.addWidget(card_title)
-
-        form = QFormLayout()
+        form = QHBoxLayout()
         form.setSpacing(10)
 
         input_style = """
@@ -113,42 +181,34 @@ class AttendancePage(QWidget):
                 background-color: #0D1117;
                 color: #F0F6FC;
                 border: 1px solid #30363D;
-                padding: 8px 10px;
+                padding: 6px 10px;
                 border-radius: 6px;
-                font-size: 13px;
+                font-size: 12px;
             }
             QLineEdit:focus {
                 border: 1px solid #cba6f7;
             }
-
         """
 
         self.input_class = QLineEdit()
-        self.input_class.setPlaceholderText("e.g. CS-101")
+        self.input_class.setPlaceholderText("Class / Room (e.g. CS-101)")
         self.input_class.setStyleSheet(input_style)
         
         self.input_subject = QLineEdit()
-        self.input_subject.setPlaceholderText("e.g. Computer Vision")
+        self.input_subject.setPlaceholderText("Subject (e.g. Computer Vision)")
         self.input_subject.setStyleSheet(input_style)
 
-        lbl_class = QLabel("Class / Room:")
-        lbl_class.setStyleSheet("color: #8B949E; font-weight: 500; font-size: 12px; border: none; background: transparent;")
-        
-        lbl_subject = QLabel("Subject:")
-        lbl_subject.setStyleSheet("color: #8B949E; font-weight: 500; font-size: 12px; border: none; background: transparent;")
+        form.addWidget(self.input_class, stretch=1)
+        form.addWidget(self.input_subject, stretch=1)
 
-        form.addRow(lbl_class, self.input_class)
-        form.addRow(lbl_subject, self.input_subject)
-        card_layout.addLayout(form)
-
-        self.btn_start = QPushButton("Start Attendance Session")
+        self.btn_start = QPushButton("Start Session")
         self.btn_start.setStyleSheet("""
             QPushButton {
                 background-color: #238636;
                 color: white;
                 font-weight: 600;
-                font-size: 13px;
-                padding: 9px;
+                font-size: 12px;
+                padding: 7px 16px;
                 border-radius: 6px;
                 border: 1px solid #2EA043;
             }
@@ -157,40 +217,49 @@ class AttendancePage(QWidget):
             }
         """)
         self.btn_start.clicked.connect(self.toggle_session)
-        card_layout.addWidget(self.btn_start)
+        form.addWidget(self.btn_start)
 
-        right_col.addWidget(self.session_card)
+        card_layout.addLayout(form)
+        left_col.addWidget(self.session_card)
 
-        # Live Stats Card
-        self.stats_card = StatusCardWidget("Present Count", "0", "Session inactive")
-        right_col.addWidget(self.stats_card)
+        split_layout.addLayout(left_col, stretch=6)
 
-        # Live Attendance Table Section
+        # Right Column: Live Attendance Roll Table
+        right_col = QVBoxLayout()
+        right_col.setSpacing(10)
+
         table_header = QHBoxLayout()
-        table_title = QLabel("Live Attendance Roll")
-        table_title.setStyleSheet("font-weight: 600; font-size: 13px; color: #F0F6FC;")
-        table_header.addWidget(table_title)
+        self.table_title = QLabel("Live Attendance Roll")
+        self.table_title.setStyleSheet("font-weight: 600; font-size: 13px; color: #F0F6FC;")
+        table_header.addWidget(self.table_title)
         table_header.addStretch()
+
+        self.record_count_badge = QLabel("0 Verified")
+        self.record_count_badge.setStyleSheet("color: #8B949E; font-size: 11px; font-weight: 600;")
+        table_header.addWidget(self.record_count_badge)
+
         right_col.addLayout(table_header)
 
         self.attendance_table = AttendanceTableWidget()
         right_col.addWidget(self.attendance_table, stretch=1)
 
-        layout.addLayout(right_col, stretch=4)
+        split_layout.addLayout(right_col, stretch=5)
+
+        main_vbox.addLayout(split_layout, stretch=1)
 
     def toggle_session(self):
         if not self.session_manager.is_session_active():
             cls = self.input_class.text().strip() or "CS-101"
-            subj = self.input_subject.text().strip() or "General Lecture"
+            subj = self.input_subject.text().strip() or "General Session"
             self.session_manager.start_session(subj, cls)
-            self.btn_start.setText("End Attendance Session")
+            self.btn_start.setText("End Session")
             self.btn_start.setStyleSheet("""
                 QPushButton {
                     background-color: #DA3633;
                     color: white;
                     font-weight: 600;
-                    font-size: 13px;
-                    padding: 9px;
+                    font-size: 12px;
+                    padding: 7px 16px;
                     border-radius: 6px;
                     border: 1px solid #F85149;
                 }
@@ -202,14 +271,14 @@ class AttendancePage(QWidget):
             self.input_subject.setEnabled(False)
         else:
             self.session_manager.end_session()
-            self.btn_start.setText("Start Attendance Session")
+            self.btn_start.setText("Start Session")
             self.btn_start.setStyleSheet("""
                 QPushButton {
                     background-color: #238636;
                     color: white;
                     font-weight: 600;
-                    font-size: 13px;
-                    padding: 9px;
+                    font-size: 12px;
+                    padding: 7px 16px;
                     border-radius: 6px;
                     border: 1px solid #2EA043;
                 }
@@ -230,19 +299,38 @@ class AttendancePage(QWidget):
         total_students = len(self.student_repo.get_all(active_only=True))
 
         if stats["active"]:
+            self.session_badge.setText(f"Active: {stats['class_name']}")
+            self.session_badge.setStyleSheet("""
+                background-color: #238636;
+                color: #FFFFFF;
+                border: 1px solid #2EA043;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            """)
+            self.card_active_session.set_value(stats["class_name"], stats["subject"])
             present = stats["present_count"]
-            self.stats_card.set_value(str(present), f"{stats['attendance_percentage']:.1f}% of {total_students} verified")
+            absent = max(0, total_students - present)
+            self.card_present.set_value(str(present), f"{stats['attendance_percentage']:.1f}% verified")
+            self.card_absent.set_value(str(absent), f"{absent} pending")
+            
+            self.table_title.setText("Live Attendance Roll")
+            self.record_count_badge.setText(f"{present} Verified")
+
+            # Load active session records into table
             records = self.attendance_repo.get_session_attendance(stats["session_id"])
             self.attendance_table.set_data(records)
-            if self.btn_start.text() != "End Attendance Session":
-                self.btn_start.setText("End Attendance Session")
+
+            if self.btn_start.text() != "End Session":
+                self.btn_start.setText("End Session")
                 self.btn_start.setStyleSheet("""
                     QPushButton {
                         background-color: #DA3633;
                         color: white;
                         font-weight: 600;
-                        font-size: 13px;
-                        padding: 9px;
+                        font-size: 12px;
+                        padding: 7px 16px;
                         border-radius: 6px;
                         border: 1px solid #F85149;
                     }
@@ -257,17 +345,36 @@ class AttendancePage(QWidget):
                 if stats.get("subject"):
                     self.input_subject.setText(stats["subject"])
         else:
-            self.stats_card.set_value("0", "Session inactive")
-            self.attendance_table.set_data([])
-            if self.btn_start.text() != "Start Attendance Session":
-                self.btn_start.setText("Start Attendance Session")
+            self.session_badge.setText("Standby")
+            self.session_badge.setStyleSheet("""
+                background-color: #21262D;
+                color: #8B949E;
+                border: 1px solid #30363D;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            """)
+            self.card_active_session.set_value("Standby", "No active session")
+            
+            # Show today's recent attendance records when standby
+            recent = self.attendance_repo.get_recent_attendance(30)
+            self.card_present.set_value(str(len(recent)), "Recent records logged")
+            self.card_absent.set_value(str(total_students), f"{total_students} in directory")
+            
+            self.table_title.setText("Recent Activity")
+            self.record_count_badge.setText(f"{len(recent)} Logged")
+            self.attendance_table.set_data(recent)
+
+            if self.btn_start.text() != "Start Session":
+                self.btn_start.setText("Start Session")
                 self.btn_start.setStyleSheet("""
                     QPushButton {
                         background-color: #238636;
                         color: white;
                         font-weight: 600;
-                        font-size: 13px;
-                        padding: 9px;
+                        font-size: 12px;
+                        padding: 7px 16px;
                         border-radius: 6px;
                         border: 1px solid #2EA043;
                     }
@@ -277,6 +384,8 @@ class AttendancePage(QWidget):
                 """)
                 self.input_class.setEnabled(True)
                 self.input_subject.setEnabled(True)
+
+        self.card_total.set_value(str(total_students), "Enrolled students")
 
     def _on_cam_source_changed(self, index: int):
         new_src = self.cam_source_combo.itemData(index)
@@ -295,6 +404,7 @@ class AttendancePage(QWidget):
                 self.cam_source_combo.setCurrentIndex(idx)
                 self.cam_source_combo.blockSignals(False)
                 break
+
 
 
 

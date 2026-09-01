@@ -109,3 +109,18 @@ def test_report_export_with_academic_year_and_department(temp_db):
     finally:
         if os.path.exists(export_path):
             os.remove(export_path)
+
+def test_camera_worker_helper_functions():
+    from ui.workers.camera_worker import CameraWorker, test_capture_device, open_video_capture
+    
+    worker = CameraWorker("0")
+    assert worker.camera_source == 0
+
+    worker_net = CameraWorker("192.168.1.50:8080")
+    assert worker_net.camera_source == "http://192.168.1.50:8080/video"
+
+    # Test invalid string URL handling
+    ok, cap = test_capture_device("http://127.0.0.1:99999/nonexistent")
+    assert ok is False
+    assert cap is None
+

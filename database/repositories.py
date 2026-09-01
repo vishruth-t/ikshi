@@ -316,3 +316,24 @@ class AttendanceRepository:
             rows = cursor.fetchall()
             return [dict(r) for r in rows]
 
+    def get_recent_attendance(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Retrieve latest attendance records across sessions for live activity dashboard."""
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT a.id, a.session_id, a.student_id, a.marked_at, a.status, a.similarity,
+                       s.student_number, s.name, s.department, s.year,
+                       sess.class_name, sess.subject
+                FROM attendance a
+                JOIN students s ON a.student_id = s.id
+                JOIN attendance_sessions sess ON a.session_id = sess.id
+                ORDER BY a.marked_at DESC
+                LIMIT ?
+                """,
+                (limit,)
+            )
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows]
+
+
