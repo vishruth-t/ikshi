@@ -36,3 +36,34 @@
 2026-09-01 11:30:36,872 [INFO] ui.workers.camera_worker: CameraWorker started on camera index 0
 2026-09-01 11:31:24,130 [INFO] ui.main_window: Closing application, stopping background worker threads...
 2026-09-01 11:31:24,140 [INFO] ui.workers.camera_worker: CameraWorker stopped.
+2026-09-01 12:23:27,311 [INFO] root: ==========================================
+2026-09-01 12:23:27,311 [INFO] root: Starting FaceAttend Desktop Application...
+2026-09-01 12:23:27,311 [INFO] root: ==========================================
+2026-09-01 12:23:27,321 [INFO] database.connection: Database initialized successfully with schemas.
+2026-09-01 12:23:27,326 [INFO] vision.face_detector: Initialized YuNet FaceDetectorYN from /home/da/sic/ikshi/models/face_detection/face_detection_yunet_2023mar.onnx
+2026-09-01 12:23:27,422 [INFO] recognition.sface_model: Initialized OpenCV SFace FaceRecognizerSF from /home/da/sic/ikshi/models/sface/face_recognition_sface_2021dec.onnx
+2026-09-01 12:23:27,588 [INFO] ui.workers.camera_worker: CameraWorker started on camera index 0
+2026-09-01 12:24:31,233 [INFO] ui.main_window: Closing application, stopping background worker threads...
+2026-09-01 12:24:31,254 [INFO] ui.workers.camera_worker: CameraWorker stopped.
+2026-09-01 12:29:04,058 [INFO] root: ==========================================
+2026-09-01 12:29:04,058 [INFO] root: Starting FaceAttend Desktop Application...
+2026-09-01 12:29:04,058 [INFO] root: ==========================================
+2026-09-01 12:29:04,062 [INFO] database.connection: Database initialized successfully with schemas.
+2026-09-01 12:29:04,067 [INFO] vision.face_detector: Initialized YuNet FaceDetectorYN from /home/da/sic/ikshi/models/face_detection/face_detection_yunet_2023mar.onnx
+2026-09-01 12:29:04,161 [INFO] recognition.sface_model: Initialized OpenCV SFace FaceRecognizerSF from /home/da/sic/ikshi/models/sface/face_recognition_sface_2021dec.onnx
+2026-09-01 12:29:04,214 [INFO] ui.workers.camera_worker: Opening camera capture source: http://192.168.1.100:8080/video
+2026-09-01 12:29:09,222 [ERROR] ui.workers.camera_worker: Unable to open camera source: http://192.168.1.100:8080/video
+2026-09-01 12:30:09,308 [INFO] config.settings: Saved application settings to /home/da/sic/ikshi/config/app_config.json
+2026-09-01 12:30:09,308 [INFO] ui.workers.camera_worker: Switching camera source to: http://192.168.0.1.190:8080/video
+2026-09-01 12:30:09,362 [INFO] ui.workers.camera_worker: Opening camera capture source: http://192.168.0.1.190:8080/video
+2026-09-01 12:30:09,484 [ERROR] ui.workers.camera_worker: Unable to open camera source: http://192.168.0.1.190:8080/video
+2026-09-01 12:30:27,669 [INFO] config.settings: Saved application settings to /home/da/sic/ikshi/config/app_config.json
+2026-09-01 12:30:27,669 [INFO] ui.workers.camera_worker: Switching camera source to: http://192.168.0.190:8080/video
+2026-09-01 12:30:27,739 [INFO] ui.workers.camera_worker: Opening camera capture source: http://192.168.0.190:8080/video
+2026-09-01 12:30:31,477 [INFO] ui.workers.camera_worker: CameraWorker active on source: http://192.168.0.190:8080/video
+2026-09-01 12:31:43,871 [INFO] enrollment.enrollment_service: Successfully registered student '1' with 5 embeddings.
+2026-09-01 12:31:58,716 [INFO] attendance.session_manager: Started session ID 2 for Class-A - General Attendance
+2026-09-01 12:31:58,721 [INFO] attendance.attendance_service: Recorded attendance for 1 (Session 2)
+2026-09-01 12:32:54,331 [INFO] attendance.session_manager: Ended session ID 2
+2026-09-01 12:32:58,629 [INFO] ui.main_window: Closing application, stopping background worker threads...
+2026-09-01 12:32:58,686 [INFO] ui.workers.camera_worker: CameraWorker stopped.

@@ -35,3 +35,17 @@ def test_settings_load_nonexistent():
     loaded = AppSettings.load("/nonexistent/path/config.json")
     assert isinstance(loaded, AppSettings)
     assert loaded.camera_index == 0
+
+def test_settings_camera_source_parsing():
+    # Integer index as string
+    s1 = AppSettings(camera_source="1")
+    assert s1.get_capture_source() == 1
+
+    # HTTP IP webcam stream URL
+    s2 = AppSettings(camera_source="http://192.168.1.100:8080/video")
+    assert s2.get_capture_source() == "http://192.168.1.100:8080/video"
+
+    # RTSP stream URL
+    s3 = AppSettings(camera_source="rtsp://192.168.1.50:554/live")
+    assert s3.get_capture_source() == "rtsp://192.168.1.50:554/live"
+

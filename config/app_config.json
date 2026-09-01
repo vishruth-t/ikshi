@@ -1,0 +1,15 @@
+{
+    "camera_index": 0,
+    "camera_source": "http://192.168.0.190:8080/video",
+    "camera_fps": 30,
+    "camera_width": 1280,
+    "camera_height": 720,
+    "detection_model_path": "/home/da/sic/ikshi/models/face_detection/face_detection_yunet_2023mar.onnx",
+    "recognition_model_path": "/home/da/sic/ikshi/models/sface/face_recognition_sface_2021dec.onnx",
+    "similarity_metric": "cosine",
+    "recognition_threshold": 0.36,
+    "confirmation_frames": 3,
+    "db_path": "/home/da/sic/ikshi/data/attendance.db",
+    "min_face_size": 60,
+    "blur_threshold": 35.0
+}

@@ -11,6 +11,7 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config", "app_config.json")
 @dataclass
 class AppSettings:
     camera_index: int = 0
+    camera_source: str = "0" # Can be device index ("0", "1") or Network URL ("http://192.168.1.100:8080/video", "rtsp://...")
     camera_fps: int = 30
     camera_width: int = 1280
     camera_height: int = 720
@@ -30,6 +31,14 @@ class AppSettings:
     # Enrollment Quality Checks
     min_face_size: int = 60 # minimum width/height in pixels
     blur_threshold: float = 35.0 # Laplacian variance minimum
+
+    def get_capture_source(self):
+        """Returns int device index or str stream URL for OpenCV VideoCapture."""
+        src = str(self.camera_source).strip() if self.camera_source else str(self.camera_index)
+        if src.isdigit():
+            return int(src)
+        return src
+
     
     def save(self, filepath: str = CONFIG_PATH):
         """Save settings to JSON file."""

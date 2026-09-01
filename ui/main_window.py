@@ -207,13 +207,16 @@ class MainWindow(QMainWindow):
         """Apply newly saved settings dynamically."""
         if hasattr(self, "recognition_worker"):
             self.recognition_worker.update_tracker_settings()
-        self.status_bar.showMessage("Settings applied dynamically.", 4000)
+        if hasattr(self, "camera_worker"):
+            self.camera_worker.update_source(settings.get_capture_source())
+        self.status_bar.showMessage(f"Settings applied. Camera source: {settings.get_capture_source()}", 4000)
 
     def _init_workers(self):
         # 1. Camera Worker Thread
-        self.camera_worker = CameraWorker(settings.camera_index)
+        self.camera_worker = CameraWorker(settings.get_capture_source())
         self.camera_worker.frame_received.connect(self.camera_view.update_frame)
         self.camera_worker.frame_received.connect(self.page_registration.handle_camera_frame)
+
 
         # 2. Recognition Worker Thread
         self.recognition_thread = QThread()
