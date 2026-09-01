@@ -90,6 +90,10 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(self.pages_stack, stretch=1)
 
+        # Connect inter-page signals
+        self.page_students.request_re_enroll.connect(self.start_re_enrollment)
+        self.page_settings.settings_saved.connect(self.apply_saved_settings)
+
         # Status Bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -181,10 +185,29 @@ class MainWindow(QMainWindow):
         for idx, btn in enumerate(self.nav_buttons):
             btn.setChecked(idx == index)
 
+        # Manage recognition worker state across pages:
+        # Pause background recognition during registration (index 2) to avoid concurrent camera processing
+        if hasattr(self, "recognition_worker"):
+            self.recognition_worker.set_enabled(index != 2)
+
         # Refresh page data on switch
         current_page = self.pages_stack.widget(index)
         if hasattr(current_page, "refresh"):
             current_page.refresh()
+
+    @Slot(object)
+    def start_re_enrollment(self, student):
+        """Navigate to registration page pre-loaded with student details for re-enrollment."""
+        self.switch_page(2) # Switch to Register Student page
+        self.page_registration.load_for_re_enroll(student)
+        self.status_bar.showMessage(f"Re-enrolling face samples for {student.name} ({student.student_number})", 6000)
+
+    @Slot()
+    def apply_saved_settings(self):
+        """Apply newly saved settings dynamically."""
+        if hasattr(self, "recognition_worker"):
+            self.recognition_worker.update_tracker_settings()
+        self.status_bar.showMessage("Settings applied dynamically.", 4000)
 
     def _init_workers(self):
         # 1. Camera Worker Thread
@@ -236,3 +259,4 @@ class MainWindow(QMainWindow):
         self.recognition_thread.quit()
         self.recognition_thread.wait(2000)
         event.accept()
+

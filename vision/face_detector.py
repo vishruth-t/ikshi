@@ -1,5 +1,6 @@
 import os
 import cv2
+import threading
 import numpy as np
 import logging
 from typing import List, Tuple, Optional
@@ -21,6 +22,7 @@ class FaceDetector:
         self.nms_threshold = nms_threshold
         self.detector = None
         self.current_input_size = (640, 480)
+        self._lock = threading.Lock()
         self._init_detector()
 
     def _init_detector(self):
@@ -29,16 +31,17 @@ class FaceDetector:
             return
         
         try:
-            self.detector = cv2.FaceDetectorYN.create(
-                model=self.model_path,
-                config="",
-                input_size=self.current_input_size,
-                score_threshold=self.score_threshold,
-                nms_threshold=self.nms_threshold,
-                top_k=5000,
-                backend_id=0,
-                target_id=0
-            )
+            with self._lock:
+                self.detector = cv2.FaceDetectorYN.create(
+                    model=self.model_path,
+                    config="",
+                    input_size=self.current_input_size,
+                    score_threshold=self.score_threshold,
+                    nms_threshold=self.nms_threshold,
+                    top_k=5000,
+                    backend_id=0,
+                    target_id=0
+                )
             logger.info(f"Initialized YuNet FaceDetectorYN from {self.model_path}")
         except Exception as e:
             logger.error(f"Failed to load FaceDetectorYN model: {e}")
@@ -52,23 +55,25 @@ class FaceDetector:
             return []
 
         h, w = image.shape[:2]
-        if (w, h) != self.current_input_size:
-            self.current_input_size = (w, h)
-            self.detector.setInputSize(self.current_input_size)
+        with self._lock:
+            try:
+                if (w, h) != self.current_input_size:
+                    self.current_input_size = (w, h)
+                    self.detector.setInputSize(self.current_input_size)
 
-        try:
-            results, faces = self.detector.detect(image)
-            if faces is None or len(faces) == 0:
+                results, faces = self.detector.detect(image)
+                if faces is None or len(faces) == 0:
+                    return []
+
+                detected_faces = []
+                for face in faces:
+                    bbox = (int(face[0]), int(face[1]), int(face[2]), int(face[3]))
+                    landmarks = face[4:14].reshape((5, 2))
+                    score = float(face[14])
+                    detected_faces.append(DetectedFace(bbox, landmarks, score, face))
+
+                return detected_faces
+            except Exception as e:
+                logger.error(f"Error during face detection: {e}")
                 return []
 
-            detected_faces = []
-            for face in faces:
-                bbox = (int(face[0]), int(face[1]), int(face[2]), int(face[3]))
-                landmarks = face[4:14].reshape((5, 2))
-                score = float(face[14])
-                detected_faces.append(DetectedFace(bbox, landmarks, score, face))
-
-            return detected_faces
-        except Exception as e:
-            logger.error(f"Error during face detection: {e}")
-            return []

@@ -46,6 +46,14 @@ class StudentRepository:
             conn.commit()
             return cursor.rowcount > 0
 
+    def delete(self, student_id: int) -> bool:
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM students WHERE id = ?", (student_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+
     def get_by_id(self, student_id: int) -> Optional[Student]:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()

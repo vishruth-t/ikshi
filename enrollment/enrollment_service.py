@@ -76,3 +76,33 @@ class EnrollmentService:
         except Exception as e:
             logger.error(f"Failed to register student: {e}")
             return False, f"Database error: {e}"
+
+    def re_enroll_student_embeddings(self, student_id: int, features: List[np.ndarray]) -> Tuple[bool, str]:
+        """
+        Replace existing face embeddings with new sample features for a registered student.
+        """
+        if not features:
+            return False, "No valid face samples provided."
+
+        student = self.student_repo.get_by_id(student_id)
+        if not student:
+            return False, f"Student ID '{student_id}' not found."
+
+        try:
+            self.embedding_repo.delete_embeddings_for_student(student_id)
+            for vec in features:
+                emb = FaceEmbedding(
+                    student_id=student_id,
+                    embedding=vec,
+                    model_name="SFace",
+                    model_version="2021dec",
+                    metric=settings.similarity_metric
+                )
+                self.embedding_repo.add_embedding(emb)
+
+            logger.info(f"Successfully re-enrolled student '{student.name}' (ID: {student_id}) with {len(features)} embeddings.")
+            return True, f"Face features re-enrolled successfully for '{student.name}'!"
+        except Exception as e:
+            logger.error(f"Failed to re-enroll student: {e}")
+            return False, f"Database error: {e}"
+

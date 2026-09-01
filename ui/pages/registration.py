@@ -17,13 +17,14 @@ class RegistrationPage(QWidget):
         self.camera_view = CameraViewWidget(self)
         self.captured_features = []
         self.current_frame = None
+        self.re_enroll_student_id = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        title = QLabel("STUDENT FACE ENROLLMENT WIZARD")
-        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #F8FAFC;")
-        layout.addWidget(title)
+        self.title_label = QLabel("STUDENT FACE ENROLLMENT WIZARD")
+        self.title_label.setStyleSheet("font-size: 20px; font-weight: bold; color: #F8FAFC;")
+        layout.addWidget(self.title_label)
 
         # Wizard Step Stack
         self.wizard_stack = QStackedWidget()
@@ -35,6 +36,18 @@ class RegistrationPage(QWidget):
         self._init_step3_complete()
 
         self.wizard_stack.setCurrentIndex(0)
+
+    def load_for_re_enroll(self, student: Student):
+        """Pre-populate wizard for re-enrolling an existing student's face embeddings."""
+        self._reset_wizard()
+        self.re_enroll_student_id = student.id
+        self.title_label.setText(f"RE-ENROLL FACE EMBEDDINGS — {student.name.upper()}")
+        self.input_num.setText(student.student_number)
+        self.input_num.setEnabled(False)
+        self.input_name.setText(student.name)
+        self.input_dept.setText(student.department)
+        self.input_year.setText(student.year)
+        self._goto_step2()
 
     @Slot(np.ndarray)
     def handle_camera_frame(self, frame: np.ndarray):
@@ -196,23 +209,44 @@ class RegistrationPage(QWidget):
                 self._finalize_registration()
 
     def _finalize_registration(self):
-        student = Student(
-            student_number=self.input_num.text().strip(),
-            name=self.input_name.text().strip(),
-            department=self.input_dept.text().strip() or "General",
-            year=self.input_year.text().strip() or "1st Year"
-        )
-        success, msg = self.enrollment_service.register_student_with_embeddings(student, self.captured_features)
-        if success:
-            self.details_label.setText(f"Successfully registered {student.name} ({student.student_number}) with {len(self.captured_features)} face feature vectors stored.")
-            self.wizard_stack.setCurrentIndex(2)
+        student_name = self.input_name.text().strip()
+        student_number = self.input_num.text().strip()
+
+        if self.re_enroll_student_id is not None:
+            # Re-enrollment path
+            success, msg = self.enrollment_service.re_enroll_student_embeddings(
+                self.re_enroll_student_id, self.captured_features
+            )
+            if success:
+                self.summary_label.setText("Step 3: Face Re-Enrollment Complete!")
+                self.details_label.setText(f"Successfully re-enrolled face embeddings for {student_name} ({student_number}) with {len(self.captured_features)} updated biometric feature vectors.")
+                self.wizard_stack.setCurrentIndex(2)
+            else:
+                QMessageBox.critical(self, "Re-Enrollment Error", msg)
         else:
-            QMessageBox.critical(self, "Registration Error", msg)
+            # New student registration path
+            student = Student(
+                student_number=student_number,
+                name=student_name,
+                department=self.input_dept.text().strip() or "General",
+                year=self.input_year.text().strip() or "1st Year"
+            )
+            success, msg = self.enrollment_service.register_student_with_embeddings(student, self.captured_features)
+            if success:
+                self.summary_label.setText("Step 3: Registration Complete!")
+                self.details_label.setText(f"Successfully registered {student.name} ({student.student_number}) with {len(self.captured_features)} face feature vectors stored.")
+                self.wizard_stack.setCurrentIndex(2)
+            else:
+                QMessageBox.critical(self, "Registration Error", msg)
 
     def _reset_wizard(self):
+        self.re_enroll_student_id = None
+        self.title_label.setText("STUDENT FACE ENROLLMENT WIZARD")
+        self.input_num.setEnabled(True)
         self.input_num.clear()
         self.input_name.clear()
         self.input_dept.clear()
         self.input_year.clear()
         self.captured_features.clear()
         self.wizard_stack.setCurrentIndex(0)
+

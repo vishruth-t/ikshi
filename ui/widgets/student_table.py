@@ -5,6 +5,8 @@ from database.models import Student
 
 class StudentTableWidget(QTableWidget):
     toggle_active_signal = Signal(int, bool) # (student_id, current_active_status)
+    re_enroll_signal = Signal(int) # (student_id)
+    delete_signal = Signal(int, str) # (student_id, student_name)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -44,24 +46,65 @@ class StudentTableWidget(QTableWidget):
             status_item.setForeground(Qt.green if s.active else Qt.red)
             self.setItem(row_idx, 5, status_item)
 
-            # Action button
-            action_btn = QPushButton("Disable" if s.active else "Enable")
-            action_btn.setStyleSheet("""
+            # Action buttons
+            btn_container = QWidget()
+            btn_layout = QHBoxLayout(btn_container)
+            btn_layout.setContentsMargins(2, 2, 2, 2)
+            btn_layout.setSpacing(6)
+
+            # 1. Toggle Active
+            toggle_btn = QPushButton("Disable" if s.active else "Enable")
+            toggle_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #334155;
                     color: white;
                     border: none;
                     padding: 4px 8px;
                     border-radius: 4px;
+                    font-size: 11px;
                 }
                 QPushButton:hover {
                     background-color: #475569;
                 }
             """)
-            action_btn.clicked.connect(lambda _, st_id=s.id, act=s.active: self.toggle_active_signal.emit(st_id, act))
-            
-            btn_container = QWidget()
-            btn_layout = QHBoxLayout(btn_container)
-            btn_layout.setContentsMargins(2, 2, 2, 2)
-            btn_layout.addWidget(action_btn)
+            toggle_btn.clicked.connect(lambda _, st_id=s.id, act=s.active: self.toggle_active_signal.emit(st_id, act))
+            btn_layout.addWidget(toggle_btn)
+
+            # 2. Re-enroll Face
+            reenroll_btn = QPushButton("Re-Enroll")
+            reenroll_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2563EB;
+                    color: white;
+                    border: none;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                }
+                QPushButton:hover {
+                    background-color: #1D4ED8;
+                }
+            """)
+            reenroll_btn.clicked.connect(lambda _, st_id=s.id: self.re_enroll_signal.emit(st_id))
+            btn_layout.addWidget(reenroll_btn)
+
+            # 3. Delete Student
+            delete_btn = QPushButton("Delete")
+            delete_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #DC2626;
+                    color: white;
+                    border: none;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                }
+                QPushButton:hover {
+                    background-color: #B91C1C;
+                }
+            """)
+            delete_btn.clicked.connect(lambda _, st_id=s.id, st_name=s.name: self.delete_signal.emit(st_id, st_name))
+            btn_layout.addWidget(delete_btn)
+
             self.setCellWidget(row_idx, 6, btn_container)
+

@@ -21,7 +21,7 @@ class AppSettings:
     
     # Recognition parameters
     similarity_metric: str = "cosine" # "cosine" or "l2"
-    recognition_threshold: float = 0.70 # Default threshold for cosine similarity
+    recognition_threshold: float = 0.363 # Recommended OpenCV SFace threshold for cosine similarity
     confirmation_frames: int = 3 # N consecutive frames for temporal stability
     
     # Database
@@ -29,7 +29,7 @@ class AppSettings:
     
     # Enrollment Quality Checks
     min_face_size: int = 60 # minimum width/height in pixels
-    blur_threshold: float = 80.0 # Laplacian variance minimum
+    blur_threshold: float = 35.0 # Laplacian variance minimum
     
     def save(self, filepath: str = CONFIG_PATH):
         """Save settings to JSON file."""

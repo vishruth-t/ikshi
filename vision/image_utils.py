@@ -47,9 +47,15 @@ def validate_face_sample(image: np.ndarray, bbox: Tuple[int, int, int, int], num
     return True, "Face quality acceptable."
 
 def cv_to_qimage(cv_img: np.ndarray) -> QImage:
-    """Convert OpenCV BGR image to PySide6 QImage."""
-    if cv_img is None:
+    """Convert OpenCV BGR or Grayscale image to PySide6 QImage."""
+    if cv_img is None or cv_img.size == 0:
         return QImage()
+    
+    if len(cv_img.shape) == 2:
+        h, w = cv_img.shape
+        bytes_per_line = w
+        return QImage(cv_img.data, w, h, bytes_per_line, QImage.Format_Grayscale8)
+    
     h, w, ch = cv_img.shape
     bytes_per_line = ch * w
     rgb_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
@@ -59,3 +65,4 @@ def cv_to_qpixmap(cv_img: np.ndarray) -> QPixmap:
     """Convert OpenCV BGR image to PySide6 QPixmap."""
     qimg = cv_to_qimage(cv_img)
     return QPixmap.fromImage(qimg)
+

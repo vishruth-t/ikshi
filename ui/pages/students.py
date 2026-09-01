@@ -1,12 +1,16 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
-from PySide6.QtCore import Slot
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
+from PySide6.QtCore import Slot, Signal
 from ui.widgets.student_table import StudentTableWidget
 from database.repositories import StudentRepository
+from database.models import Student
 
 class StudentsPage(QWidget):
+    request_re_enroll = Signal(object) # emits Student object
+
     def __init__(self, student_repo: StudentRepository, parent=None):
         super().__init__(parent)
         self.student_repo = student_repo
+        self.all_students = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -28,6 +32,8 @@ class StudentsPage(QWidget):
         # Student Table
         self.student_table = StudentTableWidget()
         self.student_table.toggle_active_signal.connect(self.toggle_student_status)
+        self.student_table.re_enroll_signal.connect(self.handle_re_enroll)
+        self.student_table.delete_signal.connect(self.handle_delete)
         layout.addWidget(self.student_table)
 
     def refresh(self):
@@ -51,3 +57,27 @@ class StudentsPage(QWidget):
     def toggle_student_status(self, student_id: int, current_active: bool):
         self.student_repo.set_active(student_id, not current_active)
         self.refresh()
+
+    @Slot(int)
+    def handle_re_enroll(self, student_id: int):
+        student = self.student_repo.get_by_id(student_id)
+        if student:
+            self.request_re_enroll.emit(student)
+
+    @Slot(int, str)
+    def handle_delete(self, student_id: int, student_name: str):
+        reply = QMessageBox.question(
+            self,
+            "Confirm Delete",
+            f"Are you sure you want to delete '{student_name}' (ID: {student_id})?\n\nThis will permanently remove the student, enrolled face features, and all associated attendance logs.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            success = self.student_repo.delete(student_id)
+            if success:
+                QMessageBox.information(self, "Student Deleted", f"Student '{student_name}' was successfully deleted.")
+                self.refresh()
+            else:
+                QMessageBox.critical(self, "Delete Failed", "Failed to delete student from database.")
+

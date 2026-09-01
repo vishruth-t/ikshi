@@ -27,3 +27,12 @@
 2026-09-01 11:22:41,519 [INFO] ui.workers.camera_worker: CameraWorker started on camera index 0
 2026-09-01 11:25:11,407 [INFO] ui.main_window: Closing application, stopping background worker threads...
 2026-09-01 11:25:11,416 [INFO] ui.workers.camera_worker: CameraWorker stopped.
+2026-09-01 11:30:36,308 [INFO] root: ==========================================
+2026-09-01 11:30:36,312 [INFO] root: Starting FaceAttend Desktop Application...
+2026-09-01 11:30:36,317 [INFO] root: ==========================================
+2026-09-01 11:30:36,441 [INFO] database.connection: Database initialized successfully with schemas.
+2026-09-01 11:30:36,448 [INFO] vision.face_detector: Initialized YuNet FaceDetectorYN from /home/da/sic/ikshi/models/face_detection/face_detection_yunet_2023mar.onnx
+2026-09-01 11:30:36,652 [INFO] recognition.sface_model: Initialized OpenCV SFace FaceRecognizerSF from /home/da/sic/ikshi/models/sface/face_recognition_sface_2021dec.onnx
+2026-09-01 11:30:36,872 [INFO] ui.workers.camera_worker: CameraWorker started on camera index 0
+2026-09-01 11:31:24,130 [INFO] ui.main_window: Closing application, stopping background worker threads...
+2026-09-01 11:31:24,140 [INFO] ui.workers.camera_worker: CameraWorker stopped.

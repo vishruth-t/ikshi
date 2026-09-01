@@ -1,9 +1,12 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QLabel, QSpinBox, QDoubleSpinBox, QComboBox, QLineEdit, QPushButton, QMessageBox
 )
+from PySide6.QtCore import Signal
 from config.settings import settings
 
 class SettingsPage(QWidget):
+    settings_saved = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         
@@ -69,4 +72,6 @@ class SettingsPage(QWidget):
         settings.db_path = self.input_db_path.text().strip()
 
         settings.save()
-        QMessageBox.information(self, "Settings Saved", "Application settings successfully saved!")
+        self.settings_saved.emit()
+        QMessageBox.information(self, "Settings Saved", "Application settings successfully saved and applied!")
+
