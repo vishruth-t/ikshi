@@ -226,3 +226,35 @@
 2026-09-01 14:23:24,550 [INFO] ui.workers.camera_worker: CameraWorker thread started for source: 0
 2026-09-01 14:23:24,551 [INFO] ui.workers.camera_worker: Attempting to connect to camera source: 0
 2026-09-01 14:23:24,662 [INFO] ui.workers.camera_worker: Successfully connected to camera source: 0
+2026-09-01 14:34:33,202 [INFO] ui.main_window: Closing application, stopping background worker threads...
+2026-09-01 14:34:33,679 [INFO] mobile_companion.server: Mobile Companion Web Server stopped.
+2026-09-01 14:34:33,699 [INFO] ui.workers.camera_worker: CameraWorker stopped.
+2026-09-01 14:34:41,493 [INFO] root: ==========================================
+2026-09-01 14:34:41,495 [INFO] root: Starting FaceAttend Desktop Application...
+2026-09-01 14:34:41,495 [INFO] root: ==========================================
+2026-09-01 14:34:41,495 [INFO] root: Checking face recognition neural models...
+2026-09-01 14:34:41,495 [INFO] models.download_models: Model already exists at /home/da/sic/ikshi/models/face_detection/face_detection_yunet_2023mar.onnx
+2026-09-01 14:34:41,495 [INFO] models.download_models: Model already exists at /home/da/sic/ikshi/models/sface/face_recognition_sface_2021dec.onnx
+2026-09-01 14:34:41,500 [INFO] database.connection: Database initialized successfully with schemas.
+2026-09-01 14:34:41,505 [INFO] vision.face_detector: Initialized YuNet FaceDetectorYN from /home/da/sic/ikshi/models/face_detection/face_detection_yunet_2023mar.onnx
+2026-09-01 14:34:41,612 [INFO] recognition.sface_model: Initialized OpenCV SFace FaceRecognizerSF from /home/da/sic/ikshi/models/sface/face_recognition_sface_2021dec.onnx
+2026-09-01 14:34:41,615 [INFO] mobile_companion.server: Mobile Companion Web Server started at http://192.168.0.34:5555
+2026-09-01 14:34:41,690 [INFO] ui.workers.camera_worker: CameraWorker thread started for source: 0
+2026-09-01 14:34:41,691 [INFO] ui.workers.camera_worker: Attempting to connect to camera source: 0
+2026-09-01 14:34:41,804 [INFO] ui.workers.camera_worker: Successfully connected to camera source: 0
+2026-09-01 14:49:16,098 [INFO] ui.main_window: Closing application, stopping background worker threads...
+2026-09-01 14:49:16,534 [INFO] mobile_companion.server: Mobile Companion Web Server stopped.
+2026-09-01 14:49:16,567 [INFO] ui.workers.camera_worker: CameraWorker stopped.
+2026-09-01 14:49:19,301 [INFO] root: ==========================================
+2026-09-01 14:49:19,302 [INFO] root: Starting FaceAttend Desktop Application...
+2026-09-01 14:49:19,304 [INFO] root: ==========================================
+2026-09-01 14:49:19,304 [INFO] root: Checking face recognition neural models...
+2026-09-01 14:49:19,304 [INFO] models.download_models: Model already exists at /home/da/sic/ikshi/models/face_detection/face_detection_yunet_2023mar.onnx
+2026-09-01 14:49:19,304 [INFO] models.download_models: Model already exists at /home/da/sic/ikshi/models/sface/face_recognition_sface_2021dec.onnx
+2026-09-01 14:49:19,309 [INFO] database.connection: Database initialized successfully with schemas.
+2026-09-01 14:49:19,315 [INFO] vision.face_detector: Initialized YuNet FaceDetectorYN from /home/da/sic/ikshi/models/face_detection/face_detection_yunet_2023mar.onnx
+2026-09-01 14:49:19,417 [INFO] recognition.sface_model: Initialized OpenCV SFace FaceRecognizerSF from /home/da/sic/ikshi/models/sface/face_recognition_sface_2021dec.onnx
+2026-09-01 14:49:19,420 [INFO] mobile_companion.server: Mobile Companion Web Server started at http://192.168.0.34:5555
+2026-09-01 14:49:19,489 [INFO] ui.workers.camera_worker: CameraWorker thread started for source: 0
+2026-09-01 14:49:19,489 [INFO] ui.workers.camera_worker: Attempting to connect to camera source: 0
+2026-09-01 14:49:19,602 [INFO] ui.workers.camera_worker: Successfully connected to camera source: 0

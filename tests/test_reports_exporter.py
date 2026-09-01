@@ -28,12 +28,15 @@ def test_export_csv_success():
         assert success is True
         assert os.path.exists(path)
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8-sig") as f:
             reader = list(csv.DictReader(f))
             assert len(reader) == 1
-            assert reader[0]["name"] == "Darshan"
-            assert reader[0]["student_number"] == "STU001"
-            assert reader[0]["subject"] == "Computer Vision"
+            assert reader[0]["Student Name"] == "Darshan"
+            assert reader[0]["Student ID"] == "STU001"
+            assert reader[0]["Subject"] == "Computer Vision"
+            assert reader[0]["Department"] == "CS"
+            assert reader[0]["Academic Year"] == "3rd Year"
+
     finally:
         if os.path.exists(path):
             os.remove(path)

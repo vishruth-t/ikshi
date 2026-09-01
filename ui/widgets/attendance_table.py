@@ -4,43 +4,45 @@ from typing import List, Dict, Any
 
 TABLE_STYLESHEET = """
     QTableWidget {
-        background-color: #111827;
-        alternate-background-color: #0F172A;
-        color: #F8FAFC;
-        gridline-color: #1E293B;
-        border: 1px solid #1E293B;
-        border-radius: 12px;
-        selection-background-color: #1E293B;
-        selection-color: #F8FAFC;
+        background-color: #0D1117;
+        alternate-background-color: #161B22;
+        color: #F0F6FC;
+        gridline-color: transparent;
+        border: 1px solid #30363D;
+        border-radius: 6px;
+        selection-background-color: #21262D;
+        selection-color: #F0F6FC;
         outline: none;
     }
     QHeaderView::section {
-        background-color: #090D16;
-        color: #94A3B8;
+        background-color: #161B22;
+        color: #8B949E;
         font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 1px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
         padding: 10px 8px;
         border: none;
-        border-bottom: 2px solid #1E293B;
+        border-bottom: 1px solid #30363D;
     }
     QTableWidget::item {
-        padding: 8px;
-        border-bottom: 1px solid #1E293B;
+        padding: 6px 10px;
+        border-bottom: 1px solid #21262D;
+        color: #F0F6FC;
+        font-size: 13px;
     }
     QScrollBar:vertical {
-        background: #0B0F19;
+        background: #0D1117;
         width: 8px;
         border-radius: 4px;
         margin: 2px;
     }
     QScrollBar::handle:vertical {
-        background: #334155;
+        background: #30363D;
         min-height: 24px;
         border-radius: 4px;
     }
     QScrollBar::handle:vertical:hover {
-        background: #475569;
+        background: #484F58;
     }
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
         height: 0px;
@@ -50,24 +52,23 @@ TABLE_STYLESHEET = """
 def create_status_pill(status: str) -> QWidget:
     container = QWidget()
     layout = QHBoxLayout(container)
-    layout.setContentsMargins(4, 2, 4, 2)
+    layout.setContentsMargins(4, 4, 4, 4)
     layout.setAlignment(Qt.AlignCenter)
     
     is_present = status.lower() == "present"
-    bg_color = "rgba(16, 185, 129, 0.15)" if is_present else "rgba(239, 68, 68, 0.15)"
-    text_color = "#34D399" if is_present else "#F87171"
-    border_color = "rgba(16, 185, 129, 0.3)" if is_present else "rgba(239, 68, 68, 0.3)"
-    icon = "● "
+    bg = "#162B1D" if is_present else "#21262D"
+    color = "#3FB950" if is_present else "#F85149"
+    border = "#238636" if is_present else "#30363D"
 
-    pill = QLabel(f"{icon}{status}")
+    pill = QLabel(status)
     pill.setStyleSheet(f"""
-        background-color: {bg_color};
-        color: {text_color};
-        border: 1px solid {border_color};
-        border-radius: 10px;
-        padding: 3px 10px;
+        background-color: {bg};
+        color: {color};
+        border: 1px solid {border};
+        border-radius: 4px;
+        padding: 3px 8px;
         font-size: 11px;
-        font-weight: 700;
+        font-weight: 600;
     """)
     layout.addWidget(pill)
     return container
@@ -75,26 +76,26 @@ def create_status_pill(status: str) -> QWidget:
 def create_confidence_pill(score: float) -> QWidget:
     container = QWidget()
     layout = QHBoxLayout(container)
-    layout.setContentsMargins(4, 2, 4, 2)
+    layout.setContentsMargins(4, 4, 4, 4)
     layout.setAlignment(Qt.AlignCenter)
 
     pct = int(score * 100) if score <= 1.0 else int(score)
-    color = "#38BDF8" if pct >= 70 else "#F59E0B"
-    bg = "rgba(56, 189, 248, 0.12)" if pct >= 70 else "rgba(245, 158, 11, 0.12)"
-    border = "rgba(56, 189, 248, 0.25)" if pct >= 70 else "rgba(245, 158, 11, 0.25)"
+    color = "#cba6f7" if pct >= 70 else "#D29922"
+
 
     pill = QLabel(f"{score:.2f} ({pct}%)")
     pill.setStyleSheet(f"""
-        background-color: {bg};
+        background-color: #21262D;
         color: {color};
-        border: 1px solid {border};
-        border-radius: 10px;
+        border: 1px solid #30363D;
+        border-radius: 4px;
         padding: 3px 8px;
         font-size: 11px;
-        font-weight: 600;
+        font-weight: 500;
     """)
     layout.addWidget(pill)
     return container
+
 
 
 class AttendanceTableWidget(QTableWidget):
@@ -107,12 +108,15 @@ class AttendanceTableWidget(QTableWidget):
         self.setEditTriggers(QTableWidget.NoEditTriggers)
         self.setAlternatingRowColors(True)
         self.verticalHeader().setVisible(False)
+        self.verticalHeader().setDefaultSectionSize(52)
+        self.setShowGrid(False)
         self.setStyleSheet(TABLE_STYLESHEET)
 
     def set_data(self, records: List[Dict[str, Any]]):
         self.setRowCount(0)
         for row_idx, r in enumerate(records):
             self.insertRow(row_idx)
+            self.setRowHeight(row_idx, 52)
             
             # Student ID
             id_item = QTableWidgetItem(r.get("student_number", ""))
@@ -138,6 +142,7 @@ class AttendanceTableWidget(QTableWidget):
             self.setCellWidget(row_idx, 4, create_confidence_pill(sim))
 
 
+
 class ReportsTableWidget(QTableWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -150,12 +155,16 @@ class ReportsTableWidget(QTableWidget):
         self.setEditTriggers(QTableWidget.NoEditTriggers)
         self.setAlternatingRowColors(True)
         self.verticalHeader().setVisible(False)
+        self.verticalHeader().setDefaultSectionSize(52)
+        self.setShowGrid(False)
         self.setStyleSheet(TABLE_STYLESHEET)
 
     def set_data(self, records: List[Dict[str, Any]]):
         self.setRowCount(0)
         for row_idx, r in enumerate(records):
             self.insertRow(row_idx)
+            self.setRowHeight(row_idx, 52)
+
             
             # Date
             date_item = QTableWidgetItem(str(r.get("date", "")))

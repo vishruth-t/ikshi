@@ -15,27 +15,28 @@ def test_calculate_blur_on_sharp_and_blurry_images():
     assert flat_score == 0.0
 
 def test_validate_face_sample_conditions():
-    img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+    img = np.random.randint(50, 200, (480, 640, 3), dtype=np.uint8)
 
     # 1. No faces detected
-    valid, msg = validate_face_sample(img, (0, 0, 0, 0), 0)
+    valid, title, subtitle = validate_face_sample(img, (0, 0, 0, 0), 0)
     assert valid is False
-    assert "No face detected" in msg
+    assert "No face detected" in title
 
     # 2. Multiple faces detected
-    valid, msg = validate_face_sample(img, (100, 100, 150, 150), 2)
+    valid, title, subtitle = validate_face_sample(img, (100, 100, 150, 150), 2)
     assert valid is False
-    assert "Multiple faces" in msg
+    assert "Multiple faces detected" in title
 
-    # 3. Face too small
-    valid, msg = validate_face_sample(img, (100, 100, 30, 30), 1)
+    # 3. Face too small / too far
+    valid, title, subtitle = validate_face_sample(img, (100, 100, 30, 30), 1)
     assert valid is False
-    assert "too small" in msg
+    assert "Move closer" in title
 
     # 4. Out of frame bounds
-    valid, msg = validate_face_sample(img, (-10, 100, 150, 150), 1)
+    valid, title, subtitle = validate_face_sample(img, (-10, 100, 150, 150), 1)
     assert valid is False
-    assert "out of frame" in msg
+    assert "Center your face" in title
+
 
 def test_cv_to_qimage_and_qpixmap():
     bgr = np.zeros((100, 100, 3), dtype=np.uint8)

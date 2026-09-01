@@ -1,9 +1,12 @@
+import os
+import shutil
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QSpinBox, QDoubleSpinBox,
-    QComboBox, QLineEdit, QPushButton, QMessageBox, QFrame
+    QComboBox, QLineEdit, QPushButton, QMessageBox, QFrame, QFileDialog
 )
 from PySide6.QtCore import Signal, Qt
 from config.settings import settings
+from config.constants import DEFAULT_ACADEMIC_YEARS, DEFAULT_DEPARTMENTS
 
 class SettingsPage(QWidget):
     settings_saved = Signal()
@@ -12,208 +15,172 @@ class SettingsPage(QWidget):
         super().__init__(parent)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(14)
 
         # Header Row
         title_box = QVBoxLayout()
-        title_box.setSpacing(4)
-        title = QLabel("SYSTEM CONFIGURATION & CALIBRATION")
-        title.setStyleSheet("font-size: 22px; font-weight: 800; color: #F8FAFC; letter-spacing: -0.5px;")
-        subtitle = QLabel("Configure camera sources, neural network thresholds, and storage paths")
-        subtitle.setStyleSheet("font-size: 13px; color: #94A3B8;")
+        title_box.setSpacing(2)
+        title = QLabel("System Settings")
+        title.setStyleSheet("font-size: 18px; font-weight: 700; color: #F0F6FC; letter-spacing: -0.2px;")
+        subtitle = QLabel("Configure academic defaults, camera feeds, recognition parameters, and data backups")
+        subtitle.setStyleSheet("font-size: 12px; color: #8B949E;")
         title_box.addWidget(title)
         title_box.addWidget(subtitle)
         layout.addLayout(title_box)
 
-        # Mobile Webcam Instructions Banner
-        help_card = QFrame()
-        help_card.setStyleSheet("""
-            QFrame {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(56, 189, 248, 0.12), stop:1 rgba(37, 99, 235, 0.08));
-                border-left: 4px solid #38BDF8;
-                border: 1px solid rgba(56, 189, 248, 0.25);
-                border-left-width: 4px;
-                border-radius: 12px;
-                padding: 12px 16px;
-            }
-            QLabel {
-                color: #CBD5E1;
-                font-size: 12px;
-            }
-        """)
-        help_layout = QVBoxLayout(help_card)
-        help_layout.setContentsMargins(8, 4, 8, 4)
-        help_layout.setSpacing(4)
-
-        help_title = QLabel("🔌 USB Phone Connection (Zero Wi-Fi Lag & No Iriun Needed):")
-        help_title.setStyleSheet("color: #38BDF8; font-weight: 800; font-size: 13px; background: transparent; border: none;")
-        help_text = QLabel(
-            "• Method 1 (USB Cable + ADB): Connect phone via USB with USB Debugging enabled, open IP Webcam or DroidCam, and click '🔌 Forward USB Port' below.\n"
-            "• Method 2 (Android 14+ Native UVC): Plug phone via USB, tap USB charging notification -> Choose 'Webcam' -> select camera index (e.g. 0, 1, 2).\n"
-            "• Method 3 (Wi-Fi): Enter phone Wi-Fi URL (e.g. http://192.168.x.x:8080/video)."
-        )
-        help_text.setStyleSheet("color: #94A3B8; font-size: 12px; background: transparent; border: none;")
-        help_layout.addWidget(help_title)
-        help_layout.addWidget(help_text)
-        layout.addWidget(help_card)
-
-        # Settings Form Card
-        form_card = QFrame()
-        form_card.setStyleSheet("""
-            QFrame {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1E293B, stop:1 #111827);
-                border: 1px solid #334155;
-                border-radius: 14px;
-                padding: 16px;
-            }
-        """)
-        form_card_layout = QVBoxLayout(form_card)
-        form_card_layout.setContentsMargins(16, 16, 16, 16)
-        form_card_layout.setSpacing(12)
-
-        form = QFormLayout()
-        form.setSpacing(12)
-
         input_style = """
             QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-                background-color: #090D16;
-                color: #F8FAFC;
-                border: 1px solid #334155;
-                padding: 8px 12px;
-                border-radius: 8px;
+                background-color: #0D1117;
+                color: #F0F6FC;
+                border: 1px solid #30363D;
+                padding: 7px 10px;
+                border-radius: 6px;
                 font-size: 12px;
             }
             QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
-                border: 1px solid #3B82F6;
+                border: 1px solid #cba6f7;
             }
         """
 
-        # Camera Source with Presets & USB Tool
-        cam_source_container = QWidget()
-        cam_source_layout = QVBoxLayout(cam_source_container)
-        cam_source_layout.setContentsMargins(0, 0, 0, 0)
-        cam_source_layout.setSpacing(8)
+        def make_section_frame(title_text: str) -> tuple[QFrame, QFormLayout]:
+            card = QFrame()
+            card.setStyleSheet("""
+                QFrame {
+                    background-color: #161B22;
+                    border: 1px solid #30363D;
+                    border-radius: 6px;
+                }
+            """)
+            c_layout = QVBoxLayout(card)
+            c_layout.setContentsMargins(14, 12, 14, 12)
+            c_layout.setSpacing(10)
 
-        input_row = QHBoxLayout()
-        input_row.setSpacing(8)
+            sec_title = QLabel(title_text)
+            sec_title.setStyleSheet("color: #F0F6FC; font-weight: 700; font-size: 13px; border: none; background: transparent;")
+            c_layout.addWidget(sec_title)
 
+            form = QFormLayout()
+            form.setSpacing(10)
+            c_layout.addLayout(form)
+            return card, form
+
+        def make_lbl(t: str) -> QLabel:
+            l = QLabel(t)
+            l.setStyleSheet("color: #8B949E; font-weight: 500; font-size: 12px; border: none; background: transparent;")
+            return l
+
+        # 1. GENERAL SETTINGS
+        gen_card, gen_form = make_section_frame("1. General Configuration")
+        self.input_app_name = QLineEdit(settings.app_name)
+        self.input_app_name.setStyleSheet(input_style)
+
+        self.input_default_dept = QComboBox()
+        self.input_default_dept.addItems(DEFAULT_DEPARTMENTS)
+        if settings.default_department in DEFAULT_DEPARTMENTS:
+            self.input_default_dept.setCurrentText(settings.default_department)
+        self.input_default_dept.setStyleSheet(input_style)
+
+        self.input_default_year = QComboBox()
+        self.input_default_year.addItems(DEFAULT_ACADEMIC_YEARS)
+        if settings.default_academic_year in DEFAULT_ACADEMIC_YEARS:
+            self.input_default_year.setCurrentText(settings.default_academic_year)
+        self.input_default_year.setStyleSheet(input_style)
+
+        gen_form.addRow(make_lbl("Application Name:"), self.input_app_name)
+        gen_form.addRow(make_lbl("Default Department:"), self.input_default_dept)
+        gen_form.addRow(make_lbl("Default Academic Year:"), self.input_default_year)
+        layout.addWidget(gen_card)
+
+        # 2. CAMERA SETTINGS
+        cam_card, cam_form = make_section_frame("2. Camera Source")
+        cam_container = QWidget()
+        cam_layout = QVBoxLayout(cam_container)
+        cam_layout.setContentsMargins(0, 0, 0, 0)
+        cam_layout.setSpacing(6)
+
+        cam_row = QHBoxLayout()
         self.input_camera_source = QLineEdit(str(settings.camera_source or settings.camera_index))
-        self.input_camera_source.setPlaceholderText("Device index (0, 1) or Stream URL (http://192.168.1.x:8080/video)")
+        self.input_camera_source.setPlaceholderText("Device index (0, 1) or Stream URL")
         self.input_camera_source.setStyleSheet(input_style)
-        input_row.addWidget(self.input_camera_source, stretch=1)
+        cam_row.addWidget(self.input_camera_source, stretch=1)
 
-        btn_test_conn = QPushButton("📡 Test Stream Connection")
+        btn_test_conn = QPushButton("Test Feed")
         btn_test_conn.setStyleSheet("""
             QPushButton {
-                background-color: #2563EB;
-                color: white;
+                background-color: #cba6f7;
+                color: #11111B;
                 font-size: 12px;
                 font-weight: 700;
-                padding: 8px 14px;
-                border-radius: 8px;
-                border: none;
+                padding: 7px 12px;
+                border-radius: 6px;
+                border: 1px solid #cba6f7;
             }
             QPushButton:hover {
-                background-color: #1D4ED8;
+                background-color: #b4befe;
             }
         """)
         btn_test_conn.clicked.connect(self.test_camera_connection)
-        input_row.addWidget(btn_test_conn)
+        cam_row.addWidget(btn_test_conn)
+        cam_layout.addLayout(cam_row)
 
-        cam_source_layout.addLayout(input_row)
-
+        # Quick preset buttons
         preset_row = QHBoxLayout()
-        preset_row.setSpacing(8)
-
+        preset_row.setSpacing(6)
         def make_preset_btn(text, val):
             b = QPushButton(text)
             b.setStyleSheet("""
                 QPushButton {
-                    background-color: #1E293B;
-                    color: #94A3B8;
-                    border: 1px solid #334155;
+                    background-color: #21262D;
+                    color: #C9D1D9;
+                    border: 1px solid #30363D;
                     font-size: 11px;
-                    font-weight: 600;
-                    padding: 5px 10px;
-                    border-radius: 6px;
+                    font-weight: 500;
+                    padding: 4px 8px;
+                    border-radius: 4px;
                 }
                 QPushButton:hover {
-                    background-color: #334155;
+                    background-color: #30363D;
                     color: white;
                 }
             """)
             b.clicked.connect(lambda: self.input_camera_source.setText(val))
             return b
 
-        btn_usb_default = make_preset_btn("Built-in USB (0)", "0")
-        btn_wifi_ipwebcam = make_preset_btn("Wi-Fi IP Webcam", "http://192.168.1.100:8080/video")
-        btn_usb_ipwebcam = make_preset_btn("USB ADB (127.0.0.1:8080)", "http://127.0.0.1:8080/video")
-        btn_usb_droidcam = make_preset_btn("USB ADB (127.0.0.1:4747)", "http://127.0.0.1:4747/video")
-
-        preset_row.addWidget(btn_usb_default)
-        preset_row.addWidget(btn_wifi_ipwebcam)
-        preset_row.addWidget(btn_usb_ipwebcam)
-        preset_row.addWidget(btn_usb_droidcam)
+        preset_row.addWidget(make_preset_btn("Built-in / USB Camera (0)", "0"))
+        preset_row.addWidget(make_preset_btn("Wi-Fi IP Webcam", "http://192.168.1.100:8080/video"))
+        preset_row.addWidget(make_preset_btn("USB Forwarded Port (8080)", "http://127.0.0.1:8080/video"))
         preset_row.addStretch()
 
-        # USB ADB Forwarding Action Row
-        adb_action_row = QHBoxLayout()
-        adb_action_row.setSpacing(8)
-
-        btn_adb_forward_8080 = QPushButton("⚡ Auto-Forward USB (IP Webcam 8080)")
-        btn_adb_forward_8080.setStyleSheet("""
+        btn_adb_forward = QPushButton("Forward Phone USB (8080)")
+        btn_adb_forward.setStyleSheet("""
             QPushButton {
-                background-color: rgba(56, 189, 248, 0.15);
-                color: #38BDF8;
-                border: 1px solid rgba(56, 189, 248, 0.35);
+                background-color: #21262D;
+                color: #cba6f7;
+                border: 1px solid #30363D;
                 font-size: 11px;
-                font-weight: 700;
-                padding: 6px 12px;
-                border-radius: 6px;
+                font-weight: 600;
+                padding: 4px 8px;
+                border-radius: 4px;
             }
             QPushButton:hover {
-                background-color: #0284C7;
-                color: white;
+                background-color: #30363D;
             }
         """)
-        btn_adb_forward_8080.clicked.connect(lambda: self.forward_adb_port(8080))
+        btn_adb_forward.clicked.connect(lambda: self.forward_adb_port(8080))
+        preset_row.addWidget(btn_adb_forward)
 
-        btn_adb_forward_4747 = QPushButton("⚡ Auto-Forward USB (DroidCam 4747)")
-        btn_adb_forward_4747.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(139, 92, 246, 0.15);
-                color: #A78BFA;
-                border: 1px solid rgba(139, 92, 246, 0.35);
-                font-size: 11px;
-                font-weight: 700;
-                padding: 6px 12px;
-                border-radius: 6px;
-            }
-            QPushButton:hover {
-                background-color: #7C3AED;
-                color: white;
-            }
-        """)
-        btn_adb_forward_4747.clicked.connect(lambda: self.forward_adb_port(4747))
+        cam_layout.addLayout(preset_row)
 
-        adb_action_row.addWidget(btn_adb_forward_8080)
-        adb_action_row.addWidget(btn_adb_forward_4747)
-        adb_action_row.addStretch()
+        cam_form.addRow(make_lbl("Camera Feed:"), cam_container)
+        layout.addWidget(cam_card)
 
-        cam_source_layout.addLayout(preset_row)
-        cam_source_layout.addLayout(adb_action_row)
-
-
-
-        self.input_metric = QComboBox()
-        self.input_metric.addItems(["cosine", "l2"])
-        self.input_metric.setCurrentText(settings.similarity_metric)
-        self.input_metric.setStyleSheet(input_style)
-
+        # 3. ATTENDANCE & RECOGNITION
+        rec_card, rec_form = make_section_frame("3. Attendance & Recognition")
+        
         self.input_threshold = QDoubleSpinBox()
-        self.input_threshold.setRange(0.1, 1.0)
-        self.input_threshold.setSingleStep(0.05)
+        self.input_threshold.setRange(0.20, 0.80)
+        self.input_threshold.setSingleStep(0.02)
         self.input_threshold.setValue(settings.recognition_threshold)
         self.input_threshold.setStyleSheet(input_style)
 
@@ -222,44 +189,53 @@ class SettingsPage(QWidget):
         self.input_frames.setValue(settings.confirmation_frames)
         self.input_frames.setStyleSheet(input_style)
 
-        self.input_det_model = QLineEdit(settings.detection_model_path)
-        self.input_det_model.setStyleSheet(input_style)
+        rec_form.addRow(make_lbl("Match Sensitivity (Cosine):"), self.input_threshold)
+        rec_form.addRow(make_lbl("Consecutive Confirmation Frames:"), self.input_frames)
+        layout.addWidget(rec_card)
 
-        self.input_rec_model = QLineEdit(settings.recognition_model_path)
-        self.input_rec_model.setStyleSheet(input_style)
-
+        # 4. DATA & SYSTEM
+        data_card, data_form = make_section_frame("4. Data & Backups")
+        
+        db_row = QHBoxLayout()
         self.input_db_path = QLineEdit(settings.db_path)
         self.input_db_path.setStyleSheet(input_style)
+        db_row.addWidget(self.input_db_path, stretch=1)
 
-        def make_lbl(t):
-            l = QLabel(t)
-            l.setStyleSheet("color: #CBD5E1; font-weight: 600; font-size: 12px; border: none; background: transparent;")
-            return l
-
-        form.addRow(make_lbl("Camera Source (Index or URL):"), cam_source_container)
-        form.addRow(make_lbl("Similarity Metric:"), self.input_metric)
-        form.addRow(make_lbl("Cosine Similarity Threshold:"), self.input_threshold)
-        form.addRow(make_lbl("Temporal Confirmation Frames (N):"), self.input_frames)
-        form.addRow(make_lbl("YuNet Detection Model Path:"), self.input_det_model)
-        form.addRow(make_lbl("SFace Recognition Model Path:"), self.input_rec_model)
-        form.addRow(make_lbl("SQLite Database Path:"), self.input_db_path)
-
-        form_card_layout.addLayout(form)
-        layout.addWidget(form_card)
-
-        btn_save = QPushButton("💾 Save & Apply System Settings")
-        btn_save.setStyleSheet("""
+        btn_backup = QPushButton("Backup Database")
+        btn_backup.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #10B981);
-                color: white;
-                font-weight: 800;
-                font-size: 13px;
-                padding: 12px 24px;
-                border-radius: 8px;
-                border: none;
+                background-color: #21262D;
+                color: #F0F6FC;
+                border: 1px solid #30363D;
+                padding: 7px 12px;
+                border-radius: 6px;
+                font-weight: 500;
+                font-size: 12px;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #047857, stop:1 #059669);
+                background-color: #30363D;
+            }
+        """)
+        btn_backup.clicked.connect(self.backup_database)
+        db_row.addWidget(btn_backup)
+
+        data_form.addRow(make_lbl("Database File:"), db_row)
+        layout.addWidget(data_card)
+
+        # Save Button
+        btn_save = QPushButton("Save System Settings")
+        btn_save.setStyleSheet("""
+            QPushButton {
+                background-color: #238636;
+                color: white;
+                font-weight: 600;
+                font-size: 13px;
+                padding: 9px 20px;
+                border-radius: 6px;
+                border: 1px solid #2EA043;
+            }
+            QPushButton:hover {
+                background-color: #2EA043;
             }
         """)
         btn_save.clicked.connect(self.save_settings)
@@ -267,25 +243,41 @@ class SettingsPage(QWidget):
 
         layout.addStretch()
 
-    def save_settings(self):
-        cam_src = self.input_camera_source.text().strip()
-        if not cam_src:
-            cam_src = "0"
+    def backup_database(self):
+        src_path = self.input_db_path.text().strip()
+        if not os.path.exists(src_path):
+            QMessageBox.warning(self, "Backup Warning", f"Database file not found at:\n{src_path}")
+            return
 
+        dest_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Database Backup",
+            "attendance_backup.db",
+            "SQLite Database (*.db *.sqlite);;All Files (*.*)"
+        )
+        if dest_path:
+            try:
+                shutil.copy2(src_path, dest_path)
+                QMessageBox.information(self, "Backup Successful", f"Database successfully backed up to:\n{dest_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Backup Failed", f"Failed to backup database:\n{e}")
+
+    def save_settings(self):
+        cam_src = self.input_camera_source.text().strip() or "0"
         settings.camera_source = cam_src
         if cam_src.isdigit():
             settings.camera_index = int(cam_src)
         
-        settings.similarity_metric = self.input_metric.currentText()
+        settings.app_name = self.input_app_name.text().strip() or "FaceAttend"
+        settings.default_department = self.input_default_dept.currentText()
+        settings.default_academic_year = self.input_default_year.currentText()
         settings.recognition_threshold = self.input_threshold.value()
         settings.confirmation_frames = self.input_frames.value()
-        settings.detection_model_path = self.input_det_model.text().strip()
-        settings.recognition_model_path = self.input_rec_model.text().strip()
         settings.db_path = self.input_db_path.text().strip()
 
         settings.save()
         self.settings_saved.emit()
-        QMessageBox.information(self, "Settings Saved", f"Application settings successfully saved!\nActive camera source: {cam_src}")
+        QMessageBox.information(self, "Settings Saved", f"Application settings saved successfully!\nActive camera source: {cam_src}")
 
     def forward_adb_port(self, port: int = 8080):
         """Forward localhost TCP port to connected Android device over USB cable via ADB."""
@@ -312,10 +304,10 @@ class SettingsPage(QWidget):
             
             QMessageBox.information(
                 self,
-                "USB ADB Connected!",
+                "USB Connection Ready",
                 f"Successfully forwarded USB port {port}!\n\n"
                 f"Camera source set to: {stream_url}\n\n"
-                f"Make sure the video server is started on your phone, then click 'Save & Apply System Settings'."
+                f"Ensure the camera app is running on your phone, then click 'Save System Settings'."
             )
             return True
         except Exception as e:
@@ -327,9 +319,7 @@ class SettingsPage(QWidget):
         import cv2
         import socket
 
-        raw_src = self.input_camera_source.text().strip()
-        if not raw_src:
-            raw_src = "0"
+        raw_src = self.input_camera_source.text().strip() or "0"
 
         # 1. Local Device Index
         if raw_src.isdigit():
@@ -341,8 +331,8 @@ class SettingsPage(QWidget):
                 if ret and frame is not None:
                     QMessageBox.information(
                         self,
-                        "Camera Test Passed!",
-                        f"✓ Local USB Camera device (Index {idx}) successfully opened!\nResolution: {frame.shape[1]}x{frame.shape[0]} px"
+                        "Camera Verified",
+                        f"✓ Local USB Camera (Index {idx}) successfully opened!\nResolution: {frame.shape[1]}x{frame.shape[0]} px"
                     )
                     return
             QMessageBox.warning(self, "Camera Test Failed", f"✕ Unable to open local camera device index {idx}.")
@@ -359,7 +349,7 @@ class SettingsPage(QWidget):
             elif rest.endswith("/"):
                 url = f"{proto}://{rest}video"
 
-        # Check Wi-Fi socket connectivity first
+        # Check socket connectivity first
         try:
             host_port = url.split("://", 1)[1].split("/", 1)[0]
             host, port_str = host_port.split(":") if ":" in host_port else (host_port, "80")
@@ -373,11 +363,11 @@ class SettingsPage(QWidget):
             if res != 0:
                 QMessageBox.critical(
                     self,
-                    "Wi-Fi Stream Unreachable",
+                    "Stream Unreachable",
                     f"✕ Cannot connect to {host}:{port} over the network.\n\n"
-                    f"Troubleshooting Guide:\n"
-                    f"1. Is your phone on the SAME Wi-Fi as your computer?\n"
-                    f"2. Is IP Webcam or DroidCam server started on your phone?\n"
+                    f"Troubleshooting:\n"
+                    f"1. Is your phone on the SAME Wi-Fi or connected via USB?\n"
+                    f"2. Is the IP Webcam or DroidCam app running on your phone?\n"
                     f"3. Verify the IP on your phone screen (e.g. {host})."
                 )
                 return
@@ -394,11 +384,11 @@ class SettingsPage(QWidget):
                 self.input_camera_source.setText(url)
                 QMessageBox.information(
                     self,
-                    "Wi-Fi Stream Verified!",
+                    "Stream Verified",
                     f"✓ Successfully received video frames from mobile stream!\n\n"
                     f"Stream URL: {url}\n"
                     f"Resolution: {frame.shape[1]}x{frame.shape[0]} px\n\n"
-                    f"Click 'Save & Apply System Settings' to apply."
+                    f"Click 'Save System Settings' to apply."
                 )
                 return
 
@@ -408,6 +398,7 @@ class SettingsPage(QWidget):
             f"Connected to {host}:{port}, but could not decode video stream.\n\n"
             f"Ensure the URL ends in '/video' (e.g. http://{host}:{port}/video)."
         )
+
 
 
 

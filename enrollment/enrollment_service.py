@@ -30,12 +30,13 @@ class EnrollmentService:
         Returns: (success: bool, feedback_message: str, feature_vector: Optional[np.ndarray])
         """
         if frame is None or not self.detector.is_loaded() or not self.sface.is_loaded():
-            return False, "Detection/Recognition model not ready.", None
+            return False, "Camera feed or recognition model not ready.", None
 
         faces = self.detector.detect(frame)
-        is_valid, msg = validate_face_sample(frame, faces[0].bbox if faces else (0,0,0,0), len(faces))
+        is_valid, title, subtitle = validate_face_sample(frame, faces[0].bbox if faces else (0,0,0,0), len(faces))
         if not is_valid:
-            return False, msg, None
+            feedback = f"{title}: {subtitle}" if subtitle else title
+            return False, feedback, None
 
         detected_face = faces[0]
         aligned_crop = self.sface.align_crop(frame, detected_face.raw_face_data)
@@ -44,9 +45,10 @@ class EnrollmentService:
 
         feature = self.sface.extract_feature(aligned_crop)
         if feature is None:
-            return False, "Failed to extract face feature vector.", None
+            return False, "Failed to extract facial data.", None
 
-        return True, "Sample captured successfully!", feature
+        return True, "Face captured successfully", feature
+
 
     def register_student_with_embeddings(self, student: Student, features: List[np.ndarray]) -> Tuple[bool, str]:
         """

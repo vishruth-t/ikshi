@@ -127,8 +127,19 @@ def test_report_data_filtering(temp_db):
     assert len(res_circ) == 1
     assert res_circ[0]["name"] == "Eve"
 
+    # Filter by department
+    res_dept = att_repo.get_report_data(department="CS")
+    assert len(res_dept) == 1
+    assert res_dept[0]["name"] == "David"
+
+    # Filter by academic year
+    res_year = att_repo.get_report_data(year="2nd Year")
+    assert len(res_year) == 1
+    assert res_year[0]["name"] == "Eve"
+
     # Filter by date range
     res_date = att_repo.get_report_data(start_date="2026-09-02", end_date="2026-09-02")
     assert len(res_date) == 1
     assert res_date[0]["name"] == "Eve"
+
 

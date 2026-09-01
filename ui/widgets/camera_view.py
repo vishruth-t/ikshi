@@ -39,30 +39,33 @@ class CameraViewWidget(QWidget):
         self.latest_results = results
         self._render()
 
-    def _draw_hud_corners(self, img: np.ndarray, x: int, y: int, w: int, h: int, color: tuple, thickness: int = 2, corner_len: int = 20):
-        """Draw sleek modern HUD corner brackets around face."""
-        corner_len = max(12, min(corner_len, w // 4, h // 4))
+    def _draw_opencv_box(self, img: np.ndarray, x: int, y: int, w: int, h: int, color: tuple, label: str):
+        """Draw classic OpenCV identifier box with corner accent brackets and solid label tag."""
+        # 1. Main bounding rectangle
+        cv2.rectangle(img, (x, y), (x + w, y + h), color, 1)
         
-        # Subtle semi-transparent box outline
-        overlay = img.copy()
-        cv2.rectangle(overlay, (x, y), (x + w, y + h), color, 1)
-        cv2.addWeighted(overlay, 0.4, img, 0.6, 0, img)
-
-        # Top-Left Corner
+        # 2. Corner brackets
+        corner_len = max(10, min(22, w // 4, h // 4))
+        thickness = 3
+        # Top-Left
         cv2.line(img, (x, y), (x + corner_len, y), color, thickness)
         cv2.line(img, (x, y), (x, y + corner_len), color, thickness)
-
-        # Top-Right Corner
+        # Top-Right
         cv2.line(img, (x + w, y), (x + w - corner_len, y), color, thickness)
         cv2.line(img, (x + w, y), (x + w, y + corner_len), color, thickness)
-
-        # Bottom-Left Corner
+        # Bottom-Left
         cv2.line(img, (x, y + h), (x + corner_len, y + h), color, thickness)
         cv2.line(img, (x, y + h), (x, y + h - corner_len), color, thickness)
-
-        # Bottom-Right Corner
+        # Bottom-Right
         cv2.line(img, (x + w, y + h), (x + w - corner_len, y + h), color, thickness)
         cv2.line(img, (x + w, y + h), (x + w, y + h - corner_len), color, thickness)
+        
+        # 3. Label tag
+        font_scale = 0.5
+        (txt_w, txt_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
+        tag_y = max(txt_h + 8, y)
+        cv2.rectangle(img, (x, tag_y - txt_h - 6), (x + txt_w + 10, tag_y), color, -1)
+        cv2.putText(img, label, (x + 5, tag_y - 4), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), 1, cv2.LINE_AA)
 
     def _render(self):
         if self.latest_frame is None:
@@ -71,7 +74,7 @@ class CameraViewWidget(QWidget):
         img = self.latest_frame.copy()
         img_h, img_w = img.shape[:2]
 
-        # Draw bounding boxes and text overlays
+        # Draw OpenCV identifier bounding boxes
         for res in self.latest_results:
             if res.bbox is None:
                 continue
@@ -83,63 +86,34 @@ class CameraViewWidget(QWidget):
             h = max(1, min(img_h - y, h))
 
             if res.confirmed and res.student_id is not None:
-                color = (46, 204, 113) # Emerald Green (BGR)
-                label_text = f" VERIFIED: {res.name} ({int(res.similarity * 100)}%)"
+                color = (67, 160, 46) # Green (BGR)
+                label_text = f"{res.name} ({int(res.similarity * 100)}%)"
             elif res.student_id is not None:
-                color = (0, 191, 255) # Deep Sky Blue / Amber
-                label_text = f" CONFIRMING: {res.name}..."
-            elif res.name in ["Sample Target", "Adjust Position"]:
-                color = (46, 204, 113) if res.confirmed else (245, 158, 11)
-                label_text = f" {res.name}"
+                color = (247, 166, 203) # Mauve #cba6f7 (BGR)
+                label_text = f"Verifying {res.name}..."
+
+            elif res.name in ["Target Ready", "Sample Target", "Adjust Position", "Hold still", "Move closer", "Center your face", "Position your face"]:
+                color = (67, 160, 46) if res.confirmed else (245, 158, 11)
+                label_text = res.name
             else:
-                color = (80, 80, 240) # Crimson / Red
-                label_text = f" UNRECOGNIZED"
+                color = (73, 81, 248) # Red (BGR)
+                label_text = "Unknown"
 
-            # Draw HUD corner accents
-            self._draw_hud_corners(img, x, y, w, h, color, thickness=3, corner_len=24)
+            self._draw_opencv_box(img, x, y, w, h, color, label_text)
 
-            # Draw sleek translucent label pill
-            font_scale = 0.55
-            thickness = 2
-            (txt_w, txt_h), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_DUPLEX, font_scale, 1)
-            
-            badge_y1 = max(0, y - txt_h - 14)
-            badge_y2 = y
-            badge_x1 = x
-            badge_x2 = min(img_w, x + txt_w + 20)
 
-            # Translucent badge background
-            overlay = img.copy()
-            cv2.rectangle(overlay, (badge_x1, badge_y1), (badge_x2, badge_y2), (15, 23, 42), -1)
-            cv2.addWeighted(overlay, 0.75, img, 0.25, 0, img)
-
-            # Left color bar accent on badge
-            cv2.rectangle(img, (badge_x1, badge_y1), (badge_x1 + 4, badge_y2), color, -1)
-
-            # Badge Text
-            cv2.putText(
-                img,
-                label_text,
-                (badge_x1 + 8, badge_y2 - 6),
-                cv2.FONT_HERSHEY_DUPLEX,
-                font_scale,
-                (248, 250, 252),
-                1,
-                cv2.LINE_AA
-            )
-
+        # Scale Pixmap to fit label preserving aspect ratio
         qimg = cv_to_qimage(img)
         pixmap = QPixmap.fromImage(qimg)
-
-        # Scale pixmap smoothly to fit view
+        
         target_size = self.image_label.size()
         if target_size.width() > 10 and target_size.height() > 10:
-            scaled_pixmap = pixmap.scaled(target_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.image_label.setPixmap(scaled_pixmap)
+            scaled = pixmap.scaled(target_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.image_label.setPixmap(scaled)
         else:
             self.image_label.setPixmap(pixmap)
+
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._render()
-

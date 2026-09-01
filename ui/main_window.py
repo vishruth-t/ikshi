@@ -30,14 +30,13 @@ from ui.pages.registration import RegistrationPage
 from ui.pages.students import StudentsPage
 from ui.pages.reports import ReportsPage
 from ui.pages.settings import SettingsPage
-from mobile_companion.server import MobileCompanionServer, get_local_ip
 
 logger = logging.getLogger(__name__)
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("FaceAttend - Local OpenCV SFace Desktop Attendance System")
+        self.setWindowTitle("FaceAttend - Local Desktop Attendance System")
         self.resize(1280, 800)
         self.setMinimumSize(480, 480)
 
@@ -58,16 +57,11 @@ class MainWindow(QMainWindow):
         self.session_manager = SessionManager(self.session_repo, self.student_repo, self.attendance_repo)
         self.attendance_service = AttendanceService(self.attendance_repo, self.student_repo, self.session_manager)
 
-        # 4. Start Mobile Web Companion Server (runs locally in background on Wi-Fi)
-        self.mobile_server = MobileCompanionServer(
-            self.session_manager, self.attendance_repo, self.student_repo, port=5555
-        )
-        self.mobile_server.start()
-
-        # 5. Setup UI Shell & Stylesheet
+        # 4. Setup UI Shell & Stylesheet
         self.is_sidebar_collapsed = False
         self.is_sidebar_collapsed_by_resize = False
         self._setup_style()
+
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -108,8 +102,8 @@ class MainWindow(QMainWindow):
         # Status Bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        mobile_url = self.mobile_server.get_url()
-        self.status_bar.showMessage(f"FaceAttend Online | Mobile Companion: {mobile_url}")
+        self.status_bar.showMessage("FaceAttend Ready | All Systems Operational")
+
 
         # 6. Setup Worker Threads (Camera & Recognition)
         self._init_workers()
@@ -123,50 +117,50 @@ class MainWindow(QMainWindow):
     def _setup_style(self):
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #090D16;
+                background-color: #0D1117;
             }
             QWidget {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, 'Helvetica Neue', sans-serif;
-                color: #F8FAFC;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                color: #F0F6FC;
                 font-size: 13px;
             }
             QToolTip {
-                background-color: #1E293B;
-                color: #F8FAFC;
-                border: 1px solid #334155;
+                background-color: #161B22;
+                color: #F0F6FC;
+                border: 1px solid #30363D;
                 border-radius: 6px;
                 padding: 6px 10px;
                 font-size: 12px;
             }
             QStatusBar {
-                background-color: #060911;
-                color: #94A3B8;
-                border-top: 1px solid #1E293B;
+                background-color: #010409;
+                color: #8B949E;
+                border-top: 1px solid #21262D;
                 padding: 4px 12px;
                 font-size: 12px;
             }
             QScrollBar:vertical {
-                background: #090D16;
+                background: #0D1117;
                 width: 8px;
                 border-radius: 4px;
                 margin: 2px;
             }
             QScrollBar::handle:vertical {
-                background: #1E293B;
+                background: #30363D;
                 min-height: 24px;
                 border-radius: 4px;
             }
             QScrollBar::handle:vertical:hover {
-                background: #334155;
+                background: #484F58;
             }
             QScrollBar:horizontal {
-                background: #090D16;
+                background: #0D1117;
                 height: 8px;
                 border-radius: 4px;
                 margin: 2px;
             }
             QScrollBar::handle:horizontal {
-                background: #1E293B;
+                background: #30363D;
                 min-width: 24px;
                 border-radius: 4px;
             }
@@ -174,141 +168,120 @@ class MainWindow(QMainWindow):
 
     def _create_sidebar(self) -> QWidget:
         sidebar = QWidget()
-        sidebar.setFixedWidth(250)
+        sidebar.setFixedWidth(240)
         sidebar.setStyleSheet("""
             QWidget {
-                background-color: #0B0F19;
-                border-right: 1px solid #1E293B;
+                background-color: #010409;
+                border-right: 1px solid #21262D;
             }
             QPushButton {
                 background-color: transparent;
-                color: #94A3B8;
+                color: #8B949E;
                 text-align: left;
-                padding: 12px 18px;
+                padding: 10px 14px;
                 font-size: 13px;
-                font-weight: 600;
+                font-weight: 500;
                 border: none;
-                border-radius: 10px;
-                margin: 3px 10px;
+                border-radius: 6px;
+                margin: 2px 10px;
             }
             QPushButton:hover {
-                background-color: #162032;
-                color: #F8FAFC;
+                background-color: #161B22;
+                color: #F0F6FC;
             }
             QPushButton:checked {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2563EB, stop:1 #3B82F6);
-                color: #FFFFFF;
+                background-color: #cba6f7;
+                color: #11111B;
                 font-weight: 700;
             }
         """)
         self.sidebar_layout = QVBoxLayout(sidebar)
         self.sidebar_layout.setContentsMargins(0, 16, 0, 16)
-        self.sidebar_layout.setSpacing(4)
+        self.sidebar_layout.setSpacing(2)
 
-        # Header Row: Logo & Hamburger Collapse Toggle
+        # Header Row: Title & Collapse Toggle
         self.brand_container = QWidget()
         brand_layout = QVBoxLayout(self.brand_container)
-        brand_layout.setContentsMargins(16, 0, 16, 12)
+        brand_layout.setContentsMargins(16, 0, 16, 16)
         brand_layout.setSpacing(4)
 
         brand_row = QHBoxLayout()
         brand_row.setSpacing(8)
         
-        brand_icon = QLabel("⚡")
-        brand_icon.setStyleSheet("font-size: 20px; background: transparent;")
-        
         self.brand_label = QLabel("FaceAttend")
-        self.brand_label.setStyleSheet("font-size: 19px; font-weight: 800; color: #FFFFFF; background: transparent; letter-spacing: -0.5px;")
+        self.brand_label.setStyleSheet("font-size: 16px; font-weight: 700; color: #F0F6FC; background: transparent; letter-spacing: -0.2px;")
         
         self.btn_toggle_sidebar = QPushButton("☰")
-        self.btn_toggle_sidebar.setToolTip("Toggle Compact Sidebar (Mobile Mode)")
+        self.btn_toggle_sidebar.setToolTip("Toggle Sidebar")
         self.btn_toggle_sidebar.setStyleSheet("""
             QPushButton {
-                background-color: #1E293B;
-                color: #94A3B8;
-                border: 1px solid #334155;
-                padding: 4px 8px;
-                border-radius: 6px;
-                font-size: 13px;
-                font-weight: bold;
+                background-color: #161B22;
+                color: #8B949E;
+                border: 1px solid #30363D;
+                padding: 3px 6px;
+                border-radius: 4px;
+                font-size: 12px;
                 margin: 0;
             }
             QPushButton:hover {
-                background-color: #334155;
-                color: white;
+                background-color: #21262D;
+                color: #F0F6FC;
             }
         """)
         self.btn_toggle_sidebar.clicked.connect(self.toggle_sidebar)
 
-        brand_row.addWidget(brand_icon)
         brand_row.addWidget(self.brand_label)
         brand_row.addStretch()
         brand_row.addWidget(self.btn_toggle_sidebar)
         brand_layout.addLayout(brand_row)
 
-        self.brand_badge = QLabel("  LOCAL OPENCV SFACE AI  ")
+        self.brand_badge = QLabel("OpenCV SFace • Local")
         self.brand_badge.setStyleSheet("""
-            color: #38BDF8;
-            background-color: rgba(56, 189, 248, 0.1);
-            border: 1px solid rgba(56, 189, 248, 0.25);
-            border-radius: 6px;
-            font-size: 9px;
-            font-weight: 800;
-            letter-spacing: 1px;
-            padding: 3px 6px;
+            color: #8B949E;
+            font-size: 11px;
+            font-weight: 500;
+            background: transparent;
+            border: none;
         """)
-        self.brand_badge.setFixedWidth(160)
         brand_layout.addWidget(self.brand_badge)
 
         self.sidebar_layout.addWidget(self.brand_container)
 
+        self.section_labels = []
         self.nav_buttons = []
-        self.nav_items_data = [
-            ("📊  Dashboard", "📊", "Dashboard", 0),
-            ("📷  Live Attendance", "📷", "Live Attendance", 1),
-            ("👤  Register Student", "👤", "Register Student", 2),
-            ("👥  Student Directory", "👥", "Student Directory", 3),
-            ("📈  Reports & Export", "📈", "Reports & Export", 4),
-            ("⚙️  Settings", "⚙️", "Settings", 5)
+        self.nav_items_data = []
+
+        self.nav_sections = [
+            ("MAIN", [
+                ("Dashboard", "📊", "Dashboard Overview", 0),
+                ("Live Attendance", "📷", "Live Attendance", 1),
+                ("Student Directory", "👥", "Student Directory", 3),
+                ("Reports & Export", "📈", "Reports & Export", 4),
+            ]),
+            ("MANAGEMENT", [
+                ("Register Student", "👤", "Register Student", 2),
+            ]),
+            ("SYSTEM", [
+                ("Settings", "⚙️", "System Settings", 5),
+            ])
         ]
 
-        for full_text, short_icon, tooltip, index in self.nav_items_data:
-            btn = QPushButton(full_text)
-            btn.setToolTip(tooltip)
-            btn.setCheckable(True)
-            btn.clicked.connect(lambda _, idx=index: self.switch_page(idx))
-            self.sidebar_layout.addWidget(btn)
-            self.nav_buttons.append(btn)
+        for sec_name, items in self.nav_sections:
+            sec_lbl = QLabel(sec_name)
+            sec_lbl.setStyleSheet("color: #6E7681; font-size: 10px; font-weight: 700; letter-spacing: 0.8px; padding: 10px 14px 4px 14px; background: transparent; border: none;")
+            self.sidebar_layout.addWidget(sec_lbl)
+            self.section_labels.append(sec_lbl)
+
+            for full_text, short_icon, tooltip, index in items:
+                self.nav_items_data.append((full_text, short_icon, tooltip, index))
+                btn = QPushButton(full_text)
+                btn.setToolTip(tooltip)
+                btn.setCheckable(True)
+                btn.clicked.connect(lambda _, idx=index: self.switch_page(idx))
+                self.sidebar_layout.addWidget(btn)
+                self.nav_buttons.append(btn)
 
         self.sidebar_layout.addStretch()
-
-        # Sidebar Bottom: Mobile Web Companion Card
-        self.sys_status = QFrame()
-        self.sys_status.setStyleSheet("""
-            QFrame {
-                background-color: #111827;
-                border: 1px solid #1E293B;
-                border-radius: 10px;
-                margin: 0 10px;
-                padding: 10px;
-            }
-        """)
-        sys_layout = QVBoxLayout(self.sys_status)
-        sys_layout.setContentsMargins(8, 8, 8, 8)
-        sys_layout.setSpacing(3)
-
-        self.status_dot = QLabel("📱 Mobile Web Companion")
-        self.status_dot.setStyleSheet("color: #38BDF8; font-size: 11px; font-weight: 700; background: transparent; border: none;")
-        
-        mobile_url = f"http://{get_local_ip()}:5555"
-        self.status_sub = QLabel(f"<a href='{mobile_url}' style='color: #34D399; text-decoration: none;'>{mobile_url}</a>")
-        self.status_sub.setOpenExternalLinks(True)
-        self.status_sub.setStyleSheet("font-size: 11px; font-weight: 600; background: transparent; border: none;")
-
-        sys_layout.addWidget(self.status_dot)
-        sys_layout.addWidget(self.status_sub)
-        self.sidebar_layout.addWidget(self.sys_status)
-
         return sidebar
 
     def toggle_sidebar(self):
@@ -317,21 +290,24 @@ class MainWindow(QMainWindow):
     def set_sidebar_collapsed(self, collapsed: bool):
         self.is_sidebar_collapsed = collapsed
         if collapsed:
-            self.sidebar_widget.setFixedWidth(68)
+            self.sidebar_widget.setFixedWidth(60)
             self.brand_label.setVisible(False)
             self.brand_badge.setVisible(False)
-            self.sys_status.setVisible(False)
+            for lbl in self.section_labels:
+                lbl.setVisible(False)
             for idx, btn in enumerate(self.nav_buttons):
                 btn.setText(self.nav_items_data[idx][1]) # Short icon only
-                btn.setStyleSheet("text-align: center; padding: 12px 0; font-size: 16px; margin: 3px 6px;")
+                btn.setStyleSheet("text-align: center; padding: 10px 0; font-size: 15px; margin: 2px 6px;")
         else:
-            self.sidebar_widget.setFixedWidth(250)
+            self.sidebar_widget.setFixedWidth(240)
             self.brand_label.setVisible(True)
             self.brand_badge.setVisible(True)
-            self.sys_status.setVisible(True)
+            for lbl in self.section_labels:
+                lbl.setVisible(True)
             for idx, btn in enumerate(self.nav_buttons):
                 btn.setText(self.nav_items_data[idx][0]) # Full text
-                btn.setStyleSheet("text-align: left; padding: 12px 18px; font-size: 13px; margin: 3px 10px;")
+                btn.setStyleSheet("text-align: left; padding: 10px 14px; font-size: 13px; margin: 2px 10px;")
+
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -343,12 +319,12 @@ class MainWindow(QMainWindow):
             self.is_sidebar_collapsed_by_resize = False
             self.set_sidebar_collapsed(False)
 
-
-
     def switch_page(self, index: int):
         self.pages_stack.setCurrentIndex(index)
-        for idx, btn in enumerate(self.nav_buttons):
-            btn.setChecked(idx == index)
+        for idx, (full_text, short_icon, tooltip, page_idx) in enumerate(self.nav_items_data):
+            self.nav_buttons[idx].setChecked(page_idx == index)
+
+
 
         # Manage recognition worker state across pages:
         # Pause background recognition during registration (index 2) to avoid concurrent camera processing
@@ -423,11 +399,10 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         logger.info("Closing application, stopping background worker threads...")
-        if hasattr(self, "mobile_server"):
-            self.mobile_server.stop()
         self.camera_worker.stop()
         self.recognition_thread.quit()
         self.recognition_thread.wait(2000)
         event.accept()
+
 
 

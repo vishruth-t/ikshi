@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox, QPushButton,
     QStackedWidget, QFormLayout, QProgressBar, QMessageBox, QFrame
 )
 from PySide6.QtCore import Qt, Slot
@@ -9,6 +9,8 @@ from ui.widgets.camera_view import CameraViewWidget
 from enrollment.enrollment_service import EnrollmentService
 from database.models import Student, RecognitionResult
 from vision.image_utils import validate_face_sample
+from config.constants import DEFAULT_ACADEMIC_YEARS, DEFAULT_DEPARTMENTS
+from config.settings import settings
 
 class RegistrationPage(QWidget):
     def __init__(self, enrollment_service: EnrollmentService, parent=None):
@@ -20,13 +22,13 @@ class RegistrationPage(QWidget):
         self.re_enroll_student_id = None
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(20)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(14)
 
         # Header Title
         header_row = QHBoxLayout()
-        self.title_label = QLabel("STUDENT FACE ENROLLMENT WIZARD")
-        self.title_label.setStyleSheet("font-size: 22px; font-weight: 800; color: #F8FAFC; letter-spacing: -0.5px;")
+        self.title_label = QLabel("Register Student")
+        self.title_label.setStyleSheet("font-size: 18px; font-weight: 700; color: #F0F6FC; letter-spacing: -0.2px;")
         header_row.addWidget(self.title_label)
         header_row.addStretch()
         layout.addLayout(header_row)
@@ -35,17 +37,17 @@ class RegistrationPage(QWidget):
         self.stepper_container = QFrame()
         self.stepper_container.setStyleSheet("""
             QFrame {
-                background-color: #111827;
-                border: 1px solid #1E293B;
-                border-radius: 12px;
-                padding: 6px 16px;
+                background-color: #161B22;
+                border: 1px solid #30363D;
+                border-radius: 6px;
+                padding: 4px 12px;
             }
         """)
         stepper_layout = QHBoxLayout(self.stepper_container)
-        stepper_layout.setContentsMargins(12, 6, 12, 6)
+        stepper_layout.setContentsMargins(8, 4, 8, 4)
 
         self.step_label_1 = QLabel("1. Student Details")
-        self.step_label_2 = QLabel("2. Biometric Capture (5 Samples)")
+        self.step_label_2 = QLabel("2. Face Capture (5 Samples)")
         self.step_label_3 = QLabel("3. Complete")
 
         self.step_labels = [self.step_label_1, self.step_label_2, self.step_label_3]
@@ -53,7 +55,7 @@ class RegistrationPage(QWidget):
             stepper_layout.addWidget(lbl)
             if i < 2:
                 arrow = QLabel("→")
-                arrow.setStyleSheet("color: #475569; font-weight: bold;")
+                arrow.setStyleSheet("color: #484F58; font-weight: 600;")
                 stepper_layout.addWidget(arrow)
 
         layout.addWidget(self.stepper_container)
@@ -74,29 +76,32 @@ class RegistrationPage(QWidget):
         for idx, lbl in enumerate(self.step_labels):
             if idx == current_step:
                 lbl.setStyleSheet("""
-                    color: #38BDF8;
-                    font-weight: 800;
-                    font-size: 13px;
-                    background-color: rgba(56, 189, 248, 0.15);
-                    border: 1px solid rgba(56, 189, 248, 0.3);
-                    border-radius: 8px;
-                    padding: 4px 12px;
+                    color: #cba6f7;
+                    font-weight: 600;
+                    font-size: 12px;
+                    background-color: #21262D;
+                    border: 1px solid #30363D;
+                    border-radius: 4px;
+                    padding: 3px 8px;
                 """)
             elif idx < current_step:
-                lbl.setStyleSheet("color: #34D399; font-weight: 700; font-size: 12px; padding: 4px 8px;")
+                lbl.setStyleSheet("color: #3FB950; font-weight: 600; font-size: 12px; padding: 3px 6px;")
             else:
-                lbl.setStyleSheet("color: #64748B; font-weight: 500; font-size: 12px; padding: 4px 8px;")
+                lbl.setStyleSheet("color: #6E7681; font-weight: 500; font-size: 12px; padding: 3px 6px;")
+
 
     def load_for_re_enroll(self, student: Student):
-        """Pre-populate wizard for re-enrolling an existing student's face embeddings."""
+        """Pre-populate wizard for re-enrolling an existing student's face samples."""
         self._reset_wizard()
         self.re_enroll_student_id = student.id
-        self.title_label.setText(f"RE-ENROLL FACE EMBEDDINGS — {student.name.upper()}")
+        self.title_label.setText(f"Re-Enroll Face Samples — {student.name}")
         self.input_num.setText(student.student_number)
         self.input_num.setEnabled(False)
         self.input_name.setText(student.name)
-        self.input_dept.setText(student.department)
-        self.input_year.setText(student.year)
+        if student.department in DEFAULT_DEPARTMENTS:
+            self.input_dept.setCurrentText(student.department)
+        if student.year in DEFAULT_ACADEMIC_YEARS:
+            self.input_year.setCurrentText(student.year)
         self._goto_step2()
 
     @Slot(np.ndarray)
@@ -110,11 +115,22 @@ class RegistrationPage(QWidget):
             frame_display = frame.copy()
             if self.enrollment_service.detector and self.enrollment_service.detector.is_loaded():
                 faces = self.enrollment_service.detector.detect(frame)
+                is_valid, title, subtitle = validate_face_sample(frame, faces[0].bbox if faces else (0,0,0,0), len(faces))
+                
+                # Dynamic visual feedback
+                self.prompt_title_label.setText(title)
+                self.prompt_sub_label.setText(subtitle)
+                
+                if is_valid:
+                    self.prompt_title_label.setStyleSheet("color: #3FB950; font-weight: 700; font-size: 13px; border: none; background: transparent;")
+                    self.btn_capture.setEnabled(True)
+                else:
+                    self.prompt_title_label.setStyleSheet("color: #E3B341; font-weight: 700; font-size: 13px; border: none; background: transparent;")
+
                 results = []
                 for face in faces:
-                    is_valid, msg = validate_face_sample(frame, face.bbox, len(faces))
                     res = RecognitionResult(
-                        name="Sample Target" if is_valid else "Adjust Position",
+                        name=title if not is_valid else "Target Ready",
                         similarity=face.score,
                         bbox=face.bbox,
                         confirmed=is_valid
@@ -127,39 +143,39 @@ class RegistrationPage(QWidget):
     def _init_step1_info(self):
         step1 = QWidget()
         l = QVBoxLayout(step1)
-        l.setContentsMargins(0, 10, 0, 0)
-        l.setSpacing(16)
+        l.setContentsMargins(0, 8, 0, 0)
+        l.setSpacing(14)
 
         card = QFrame()
         card.setStyleSheet("""
             QFrame {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1E293B, stop:1 #111827);
-                border: 1px solid #334155;
-                border-radius: 14px;
-                padding: 24px;
+                background-color: #161B22;
+                border: 1px solid #30363D;
+                border-radius: 8px;
+                padding: 18px;
             }
         """)
         card_layout = QVBoxLayout(card)
-        card_layout.setSpacing(16)
+        card_layout.setSpacing(14)
 
-        desc = QLabel("Enter the student's biographical and academic details below to begin biometric enrollment.")
-        desc.setStyleSheet("color: #94A3B8; font-size: 13px; border: none; background: transparent;")
+        desc = QLabel("Enter the student's biographical and academic details to begin registration.")
+        desc.setStyleSheet("color: #8B949E; font-size: 13px; border: none; background: transparent;")
         card_layout.addWidget(desc)
 
         form = QFormLayout()
-        form.setSpacing(14)
+        form.setSpacing(12)
 
         input_style = """
-            QLineEdit {
-                background-color: #090D16;
-                color: #F8FAFC;
-                border: 1px solid #334155;
-                padding: 10px 14px;
-                border-radius: 8px;
+            QLineEdit, QComboBox {
+                background-color: #0D1117;
+                color: #F0F6FC;
+                border: 1px solid #30363D;
+                padding: 8px 12px;
+                border-radius: 6px;
                 font-size: 13px;
             }
-            QLineEdit:focus {
-                border: 1px solid #3B82F6;
+            QLineEdit:focus, QComboBox:focus {
+                border: 1px solid #cba6f7;
             }
         """
 
@@ -171,20 +187,24 @@ class RegistrationPage(QWidget):
         self.input_name.setPlaceholderText("e.g. Darshan Sharma")
         self.input_name.setStyleSheet(input_style)
 
-        self.input_dept = QLineEdit()
-        self.input_dept.setPlaceholderText("e.g. Computer Science & Engineering")
+        # Department Dropdown
+        self.input_dept = QComboBox()
+        self.input_dept.addItems(DEFAULT_DEPARTMENTS)
+        self.input_dept.setCurrentText(settings.default_department if settings.default_department in DEFAULT_DEPARTMENTS else DEFAULT_DEPARTMENTS[0])
         self.input_dept.setStyleSheet(input_style)
 
-        self.input_year = QLineEdit()
-        self.input_year.setPlaceholderText("e.g. 3rd Year")
+        # Academic Year Dropdown
+        self.input_year = QComboBox()
+        self.input_year.addItems(DEFAULT_ACADEMIC_YEARS)
+        self.input_year.setCurrentText(settings.default_academic_year if settings.default_academic_year in DEFAULT_ACADEMIC_YEARS else DEFAULT_ACADEMIC_YEARS[0])
         self.input_year.setStyleSheet(input_style)
 
         def make_form_lbl(text):
             lbl = QLabel(text)
-            lbl.setStyleSheet("color: #CBD5E1; font-weight: 600; font-size: 12px; border: none; background: transparent;")
+            lbl.setStyleSheet("color: #8B949E; font-weight: 500; font-size: 12px; border: none; background: transparent;")
             return lbl
 
-        form.addRow(make_form_lbl("Student ID / Roll Number:"), self.input_num)
+        form.addRow(make_form_lbl("Student ID:"), self.input_num)
         form.addRow(make_form_lbl("Full Name:"), self.input_name)
         form.addRow(make_form_lbl("Department:"), self.input_dept)
         form.addRow(make_form_lbl("Academic Year:"), self.input_year)
@@ -193,20 +213,21 @@ class RegistrationPage(QWidget):
         btn_next = QPushButton("Proceed to Face Capture →")
         btn_next.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2563EB, stop:1 #3B82F6);
-                color: white;
+                background-color: #cba6f7;
+                color: #11111B;
                 font-weight: 700;
                 font-size: 13px;
-                padding: 12px 24px;
-                border-radius: 8px;
-                border: none;
+                padding: 9px 18px;
+                border-radius: 6px;
+                border: 1px solid #cba6f7;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1D4ED8, stop:1 #2563EB);
+                background-color: #b4befe;
             }
         """)
         btn_next.clicked.connect(self._goto_step2)
         card_layout.addWidget(btn_next, alignment=Qt.AlignRight)
+
 
         l.addWidget(card)
         l.addStretch()
@@ -215,38 +236,46 @@ class RegistrationPage(QWidget):
     def _init_step2_capture(self):
         step2 = QWidget()
         l = QVBoxLayout(step2)
-        l.setContentsMargins(0, 10, 0, 0)
-        l.setSpacing(12)
+        l.setContentsMargins(0, 8, 0, 0)
+        l.setSpacing(10)
 
-        # Guidance Card
+        # Dynamic Actionable Guidance Card
         guide_card = QFrame()
         guide_card.setStyleSheet("""
             QFrame {
-                background-color: #111827;
-                border: 1px solid #1E293B;
-                border-radius: 12px;
-                padding: 10px 16px;
+                background-color: #161B22;
+                border: 1px solid #30363D;
+                border-radius: 6px;
+                padding: 10px 14px;
             }
         """)
-        g_layout = QHBoxLayout(guide_card)
-        g_layout.setContentsMargins(12, 8, 12, 8)
+        g_layout = QVBoxLayout(guide_card)
+        g_layout.setContentsMargins(8, 6, 8, 6)
+        g_layout.setSpacing(2)
 
-        self.quality_feedback_label = QLabel("🎯 Position face inside the camera frame and click 'Capture Face Sample'.")
-        self.quality_feedback_label.setStyleSheet("color: #F59E0B; font-weight: 700; font-size: 13px; border: none; background: transparent;")
-        g_layout.addWidget(self.quality_feedback_label)
-        g_layout.addStretch()
-
-        self.samples_counter_badge = QLabel("0 / 5 SAMPLES")
+        header_line = QHBoxLayout()
+        self.prompt_title_label = QLabel("Position your face inside the guide")
+        self.prompt_title_label.setStyleSheet("color: #E3B341; font-weight: 700; font-size: 13px; border: none; background: transparent;")
+        
+        self.samples_counter_badge = QLabel("0 / 5 Samples")
         self.samples_counter_badge.setStyleSheet("""
-            background-color: rgba(56, 189, 248, 0.12);
-            color: #38BDF8;
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            border-radius: 10px;
-            padding: 3px 10px;
+            background-color: #21262D;
+            color: #cba6f7;
+            border: 1px solid #30363D;
+            border-radius: 4px;
+            padding: 3px 8px;
             font-size: 11px;
-            font-weight: 800;
+            font-weight: 600;
         """)
-        g_layout.addWidget(self.samples_counter_badge)
+        header_line.addWidget(self.prompt_title_label)
+        header_line.addStretch()
+        header_line.addWidget(self.samples_counter_badge)
+        g_layout.addLayout(header_line)
+
+        self.prompt_sub_label = QLabel("Move closer or farther away until your face is centered inside the frame.")
+        self.prompt_sub_label.setStyleSheet("color: #8B949E; font-size: 12px; border: none; background: transparent;")
+        g_layout.addWidget(self.prompt_sub_label)
+
         l.addWidget(guide_card)
 
         # Progress bar
@@ -254,16 +283,16 @@ class RegistrationPage(QWidget):
         self.progress_bar.setRange(0, 5)
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(False)
-        self.progress_bar.setFixedHeight(6)
+        self.progress_bar.setFixedHeight(4)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
                 border: none;
-                border-radius: 3px;
-                background-color: #1E293B;
+                border-radius: 2px;
+                background-color: #21262D;
             }
             QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #10B981);
-                border-radius: 3px;
+                background-color: #238636;
+                border-radius: 2px;
             }
         """)
         l.addWidget(self.progress_bar)
@@ -273,38 +302,43 @@ class RegistrationPage(QWidget):
 
         # Action Buttons Row
         btn_box = QHBoxLayout()
-        btn_box.setSpacing(12)
+        btn_box.setSpacing(10)
 
         btn_cancel = QPushButton("← Back to Details")
         btn_cancel.setStyleSheet("""
             QPushButton {
-                background-color: #1E293B;
-                color: #94A3B8;
-                border: 1px solid #334155;
-                padding: 11px 20px;
-                border-radius: 8px;
-                font-weight: 600;
+                background-color: #21262D;
+                color: #C9D1D9;
+                border: 1px solid #30363D;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: 500;
             }
             QPushButton:hover {
-                background-color: #334155;
+                background-color: #30363D;
                 color: white;
             }
         """)
         btn_cancel.clicked.connect(lambda: [self._update_stepper_ui(0), self.wizard_stack.setCurrentIndex(0)])
 
-        self.btn_capture = QPushButton("📸 Capture Face Sample")
+        self.btn_capture = QPushButton("Capture Face Sample")
         self.btn_capture.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #10B981);
+                background-color: #238636;
                 color: white;
-                font-weight: 800;
+                font-weight: 600;
                 font-size: 13px;
-                padding: 11px 24px;
-                border-radius: 8px;
-                border: none;
+                padding: 9px 20px;
+                border-radius: 6px;
+                border: 1px solid #2EA043;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #047857, stop:1 #059669);
+                background-color: #2EA043;
+            }
+            QPushButton:disabled {
+                background-color: #21262D;
+                color: #484F58;
+                border: 1px solid #30363D;
             }
         """)
         self.btn_capture.clicked.connect(self._capture_sample)
@@ -319,88 +353,111 @@ class RegistrationPage(QWidget):
     def _init_step3_complete(self):
         step3 = QWidget()
         l = QVBoxLayout(step3)
-        l.setContentsMargins(0, 20, 0, 0)
-        l.setSpacing(20)
+        l.setContentsMargins(0, 16, 0, 0)
+        l.setSpacing(16)
 
         card = QFrame()
         card.setStyleSheet("""
             QFrame {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1E293B, stop:1 #111827);
-                border: 1px solid rgba(16, 185, 129, 0.4);
-                border-radius: 14px;
-                padding: 32px;
+                background-color: #161B22;
+                border: 1px solid #30363D;
+                border-radius: 8px;
+                padding: 24px;
             }
         """)
         c_layout = QVBoxLayout(card)
         c_layout.setAlignment(Qt.AlignCenter)
-        c_layout.setSpacing(16)
+        c_layout.setSpacing(12)
 
-        icon = QLabel("✅")
-        icon.setStyleSheet("font-size: 44px; background: transparent; border: none;")
-        c_layout.addWidget(icon, alignment=Qt.AlignCenter)
-
-        self.summary_label = QLabel("Biometric Registration Complete!")
-        self.summary_label.setStyleSheet("font-size: 20px; font-weight: 800; color: #10B981; background: transparent; border: none;")
+        self.summary_label = QLabel("Registration Complete")
+        self.summary_label.setStyleSheet("font-size: 18px; font-weight: 700; color: #3FB950; background: transparent; border: none;")
         c_layout.addWidget(self.summary_label, alignment=Qt.AlignCenter)
 
         self.details_label = QLabel("")
-        self.details_label.setStyleSheet("font-size: 13px; color: #CBD5E1; background: transparent; border: none; text-align: center;")
+        self.details_label.setStyleSheet("font-size: 13px; color: #8B949E; background: transparent; border: none; text-align: center;")
         self.details_label.setWordWrap(True)
         c_layout.addWidget(self.details_label, alignment=Qt.AlignCenter)
 
-        btn_finish = QPushButton("Finish & Enroll Another Student")
+        btn_finish = QPushButton("Register Another Student")
         btn_finish.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2563EB, stop:1 #3B82F6);
-                color: white;
+                background-color: #cba6f7;
+                color: #11111B;
                 font-weight: 700;
                 font-size: 13px;
-                padding: 12px 28px;
-                border-radius: 8px;
-                border: none;
-                margin-top: 10px;
+                padding: 9px 20px;
+                border-radius: 6px;
+                border: 1px solid #cba6f7;
+                margin-top: 8px;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1D4ED8, stop:1 #2563EB);
+                background-color: #b4befe;
             }
         """)
         btn_finish.clicked.connect(self._reset_wizard)
         c_layout.addWidget(btn_finish, alignment=Qt.AlignCenter)
 
+
         l.addWidget(card)
         l.addStretch()
         self.wizard_stack.addWidget(step3)
 
+
     def _goto_step2(self):
         num = self.input_num.text().strip()
         name = self.input_name.text().strip()
-        if not num or not name:
-            QMessageBox.warning(self, "Validation Error", "Please provide both Student ID and Full Name.")
+        dept = self.input_dept.currentText().strip()
+        year = self.input_year.currentText().strip()
+        
+        if not num:
+            QMessageBox.warning(self, "Validation Error", "Please provide a valid Student ID / Roll Number.")
             return
+        if not name:
+            QMessageBox.warning(self, "Validation Error", "Please provide the student's Full Name.")
+            return
+        if not dept:
+            QMessageBox.warning(self, "Validation Error", "Please select a Department.")
+            return
+        if not year:
+            QMessageBox.warning(self, "Validation Error", "Please select an Academic Year.")
+            return
+
         self.captured_features.clear()
         self.progress_bar.setValue(0)
-        self.samples_counter_badge.setText("0 / 5 SAMPLES")
-        self.quality_feedback_label.setText("🎯 Position face inside the camera frame and click 'Capture Face Sample'.")
+        self.samples_counter_badge.setText("0 / 5 Samples")
+        self.prompt_title_label.setText("Position your face inside the guide")
+        self.prompt_sub_label.setText("Move closer or farther away until your face is centered inside the frame.")
         self._update_stepper_ui(1)
         self.wizard_stack.setCurrentIndex(1)
 
     def _capture_sample(self):
         if self.current_frame is None:
-            self.quality_feedback_label.setText("⚠️ No camera frame available.")
+            self.prompt_title_label.setText("No camera frame available")
+            self.prompt_sub_label.setText("Please check that your camera is connected.")
             return
 
         success, msg, feature = self.enrollment_service.process_sample(self.current_frame)
-        self.quality_feedback_label.setText(f"ℹ️ {msg}")
+        if not success:
+            self.prompt_title_label.setText("Capture failed")
+            self.prompt_sub_label.setText(msg)
+            return
 
         if success and feature is not None:
             self.captured_features.append(feature)
             count = len(self.captured_features)
             self.progress_bar.setValue(count)
-            self.samples_counter_badge.setText(f"{count} / 5 SAMPLES")
+            self.samples_counter_badge.setText(f"{count} / 5 Samples")
             
-            sample_hints = ["slight left angle", "slight right angle", "different expression", "slight tilt", "straight ahead"]
-            hint_idx = min(count, 4)
-            self.quality_feedback_label.setText(f"✓ Sample {count}/5 captured! Next: turn head {sample_hints[hint_idx]}.")
+            sample_hints = [
+                "Face sample 1 of 5 recorded. Please turn head slightly to the left.",
+                "Face sample 2 of 5 recorded. Please turn head slightly to the right.",
+                "Face sample 3 of 5 recorded. Please tilt head slightly upward.",
+                "Face sample 4 of 5 recorded. Please look straight ahead.",
+                "All 5 face samples captured successfully!"
+            ]
+            self.prompt_title_label.setText("Face sample captured")
+            self.prompt_title_label.setStyleSheet("color: #3FB950; font-weight: 700; font-size: 13px; border: none; background: transparent;")
+            self.prompt_sub_label.setText(sample_hints[min(count - 1, 4)])
 
             if count >= 5:
                 self._finalize_registration()
@@ -408,6 +465,8 @@ class RegistrationPage(QWidget):
     def _finalize_registration(self):
         student_name = self.input_name.text().strip()
         student_number = self.input_num.text().strip()
+        department = self.input_dept.currentText().strip()
+        academic_year = self.input_year.currentText().strip()
 
         if self.re_enroll_student_id is not None:
             success, msg = self.enrollment_service.re_enroll_student_embeddings(
@@ -415,8 +474,8 @@ class RegistrationPage(QWidget):
             )
             if success:
                 self._update_stepper_ui(2)
-                self.summary_label.setText("Face Re-Enrollment Successful!")
-                self.details_label.setText(f"Successfully re-enrolled 128D OpenCV SFace biometric embeddings for {student_name} ({student_number}) with {len(self.captured_features)} high-quality samples.")
+                self.summary_label.setText("Face Re-Enrollment Successful")
+                self.details_label.setText(f"Face data for {student_name} ({student_number}) updated with 5 high-quality samples in {department} ({academic_year}).")
                 self.wizard_stack.setCurrentIndex(2)
             else:
                 QMessageBox.critical(self, "Re-Enrollment Error", msg)
@@ -424,28 +483,28 @@ class RegistrationPage(QWidget):
             student = Student(
                 student_number=student_number,
                 name=student_name,
-                department=self.input_dept.text().strip() or "General",
-                year=self.input_year.text().strip() or "1st Year"
+                department=department,
+                year=academic_year
             )
             success, msg = self.enrollment_service.register_student_with_embeddings(student, self.captured_features)
             if success:
                 self._update_stepper_ui(2)
-                self.summary_label.setText("Student Registration Successful!")
-                self.details_label.setText(f"Successfully registered {student.name} ({student.student_number}) with {len(self.captured_features)} OpenCV SFace feature vectors in database.")
+                self.summary_label.setText("Student Registration Successful")
+                self.details_label.setText(f"{student.name} ({student.student_number}) registered successfully in {department} for academic year {academic_year}.")
                 self.wizard_stack.setCurrentIndex(2)
             else:
                 QMessageBox.critical(self, "Registration Error", msg)
 
     def _reset_wizard(self):
         self.re_enroll_student_id = None
-        self.title_label.setText("STUDENT FACE ENROLLMENT WIZARD")
+        self.title_label.setText("Register Student")
         self.input_num.setEnabled(True)
         self.input_num.clear()
         self.input_name.clear()
-        self.input_dept.clear()
-        self.input_year.clear()
+        if settings.default_department in DEFAULT_DEPARTMENTS:
+            self.input_dept.setCurrentText(settings.default_department)
+        if settings.default_academic_year in DEFAULT_ACADEMIC_YEARS:
+            self.input_year.setCurrentText(settings.default_academic_year)
         self.captured_features.clear()
         self._update_stepper_ui(0)
         self.wizard_stack.setCurrentIndex(0)
-
-

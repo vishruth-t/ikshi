@@ -11,3 +11,6 @@ logs/*.log
 *.swp
 *.swo
 .DS_Store
+data/*.db-shm
+data/*.db-wal
+

@@ -5,6 +5,7 @@ from PySide6.QtCore import Slot, Signal
 from ui.widgets.student_table import StudentTableWidget
 from database.repositories import StudentRepository
 from database.models import Student
+from config.constants import DEFAULT_ACADEMIC_YEARS, DEFAULT_DEPARTMENTS
 
 class StudentsPage(QWidget):
     request_re_enroll = Signal(object) # emits Student object
@@ -15,87 +16,105 @@ class StudentsPage(QWidget):
         self.all_students = []
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(14)
 
-        # Header Row with Live Stat Badges
+        # Header Row with Stat Badges
         header_row = QHBoxLayout()
         title_box = QVBoxLayout()
-        title_box.setSpacing(4)
+        title_box.setSpacing(2)
 
-        title = QLabel("STUDENT MANAGEMENT DIRECTORY")
-        title.setStyleSheet("font-size: 22px; font-weight: 800; color: #F8FAFC; letter-spacing: -0.5px;")
+        title = QLabel("Student Directory")
+        title.setStyleSheet("font-size: 18px; font-weight: 700; color: #F0F6FC; letter-spacing: -0.2px;")
         
-        subtitle = QLabel("Manage biometric enrollment status, re-enroll faces, and audit records")
-        subtitle.setStyleSheet("font-size: 13px; color: #94A3B8;")
+        subtitle = QLabel("Manage enrolled students and biometric profiles")
+        subtitle.setStyleSheet("font-size: 12px; color: #8B949E;")
 
         title_box.addWidget(title)
         title_box.addWidget(subtitle)
         header_row.addLayout(title_box)
         header_row.addStretch()
 
-        self.counter_badge = QLabel("TOTAL: 0 ENROLLED")
+        self.counter_badge = QLabel("0 Students")
         self.counter_badge.setStyleSheet("""
-            background-color: rgba(56, 189, 248, 0.12);
-            color: #38BDF8;
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            border-radius: 12px;
-            padding: 6px 14px;
+            background-color: #21262D;
+            color: #8B949E;
+            border: 1px solid #30363D;
+            border-radius: 4px;
+            padding: 4px 10px;
             font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 0.5px;
+            font-weight: 600;
         """)
         header_row.addWidget(self.counter_badge)
         layout.addLayout(header_row)
 
-        # Search and Filter Toolbar Card
+        # Search and Filter Toolbar
         toolbar = QFrame()
         toolbar.setStyleSheet("""
             QFrame {
-                background-color: #111827;
-                border: 1px solid #1E293B;
-                border-radius: 12px;
-                padding: 4px;
+                background-color: #161B22;
+                border: 1px solid #30363D;
+                border-radius: 6px;
             }
         """)
         toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(12, 8, 12, 8)
-        toolbar_layout.setSpacing(12)
+        toolbar_layout.setContentsMargins(8, 6, 8, 6)
+        toolbar_layout.setSpacing(8)
+
+        input_style = """
+            QLineEdit, QComboBox {
+                background-color: #0D1117;
+                color: #F0F6FC;
+                border: 1px solid #30363D;
+                padding: 7px 10px;
+                border-radius: 6px;
+                font-size: 12px;
+            }
+            QLineEdit:focus, QComboBox:focus {
+                border: 1px solid #cba6f7;
+            }
+
+        """
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("🔍  Search by student name, ID number, department...")
-        self.search_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #090D16;
-                color: #F8FAFC;
-                border: 1px solid #334155;
-                padding: 8px 14px;
-                border-radius: 8px;
-                font-size: 13px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #3B82F6;
-            }
-        """)
+        self.search_input.setPlaceholderText("Search by name or student ID...")
+        self.search_input.setStyleSheet(input_style)
         self.search_input.textChanged.connect(self.filter_students)
         toolbar_layout.addWidget(self.search_input, stretch=3)
 
-        btn_clear = QPushButton("Clear")
+        # Department Filter Dropdown
+        self.dept_filter = QComboBox()
+        self.dept_filter.addItem("All Departments")
+        self.dept_filter.addItems(DEFAULT_DEPARTMENTS)
+        self.dept_filter.setStyleSheet(input_style)
+        self.dept_filter.currentIndexChanged.connect(self.filter_students)
+        toolbar_layout.addWidget(self.dept_filter, stretch=2)
+
+        # Academic Year Filter Dropdown
+        self.year_filter = QComboBox()
+        self.year_filter.addItem("All Academic Years")
+        self.year_filter.addItems(DEFAULT_ACADEMIC_YEARS)
+        self.year_filter.setStyleSheet(input_style)
+        self.year_filter.currentIndexChanged.connect(self.filter_students)
+        toolbar_layout.addWidget(self.year_filter, stretch=2)
+
+        btn_clear = QPushButton("Reset")
         btn_clear.setStyleSheet("""
             QPushButton {
-                background-color: #1E293B;
-                color: #94A3B8;
-                border: 1px solid #334155;
-                padding: 8px 14px;
-                border-radius: 8px;
-                font-weight: 600;
+                background-color: #21262D;
+                color: #C9D1D9;
+                border: 1px solid #30363D;
+                padding: 7px 12px;
+                border-radius: 6px;
+                font-weight: 500;
+                font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #334155;
+                background-color: #30363D;
                 color: white;
             }
         """)
-        btn_clear.clicked.connect(lambda: self.search_input.clear())
+        btn_clear.clicked.connect(self._reset_filters)
         toolbar_layout.addWidget(btn_clear)
 
         layout.addWidget(toolbar)
@@ -107,23 +126,38 @@ class StudentsPage(QWidget):
         self.student_table.delete_signal.connect(self.handle_delete)
         layout.addWidget(self.student_table, stretch=1)
 
+    def _reset_filters(self):
+        self.search_input.clear()
+        self.dept_filter.setCurrentIndex(0)
+        self.year_filter.setCurrentIndex(0)
+        self.filter_students()
+
     def refresh(self):
         students = self.student_repo.get_all(active_only=False)
         self.all_students = students
         active_cnt = sum(1 for s in students if s.active)
-        self.counter_badge.setText(f"TOTAL: {len(students)}  |  ACTIVE: {active_cnt}")
-        self.filter_students(self.search_input.text())
+        self.counter_badge.setText(f"{len(students)} Total • {active_cnt} Active")
+        self.filter_students()
 
-    def filter_students(self, text: str):
-        text = text.lower().strip()
-        if not text:
-            self.student_table.set_students(self.all_students)
-            return
+    def filter_students(self):
+        text = self.search_input.text().lower().strip()
+        dept = self.dept_filter.currentText()
+        year = self.year_filter.currentText()
 
-        filtered = [
-            s for s in self.all_students
-            if text in s.name.lower() or text in s.student_number.lower() or text in s.department.lower()
-        ]
+        filtered = self.all_students
+
+        if text:
+            filtered = [
+                s for s in filtered
+                if text in s.name.lower() or text in s.student_number.lower()
+            ]
+
+        if dept and dept != "All Departments":
+            filtered = [s for s in filtered if s.department == dept]
+
+        if year and year != "All Academic Years":
+            filtered = [s for s in filtered if s.year == year]
+
         self.student_table.set_students(filtered)
 
     @Slot(int, bool)
@@ -142,7 +176,7 @@ class StudentsPage(QWidget):
         reply = QMessageBox.question(
             self,
             "Confirm Deletion",
-            f"Are you sure you want to permanently delete '{student_name}' (ID: {student_id})?\n\nThis will remove their 128D SFace biometric templates and past attendance records.",
+            f"Are you sure you want to permanently delete '{student_name}' (ID: {student_id})?\n\nThis will remove their profile and past attendance records.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -153,5 +187,6 @@ class StudentsPage(QWidget):
                 self.refresh()
             else:
                 QMessageBox.critical(self, "Delete Failed", "Failed to delete student from database.")
+
 
 

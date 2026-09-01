@@ -271,7 +271,15 @@ class AttendanceRepository:
             rows = cursor.fetchall()
             return [dict(r) for r in rows]
 
-    def get_report_data(self, start_date: str = None, end_date: str = None, class_name: str = None, subject: str = None) -> List[Dict[str, Any]]:
+    def get_report_data(
+        self,
+        start_date: str = None,
+        end_date: str = None,
+        class_name: str = None,
+        subject: str = None,
+        department: str = None,
+        year: str = None
+    ) -> List[Dict[str, Any]]:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             query = """
@@ -296,8 +304,15 @@ class AttendanceRepository:
             if subject:
                 query += " AND sess.subject LIKE ?"
                 params.append(f"%{subject}%")
+            if department and department != "All Departments":
+                query += " AND s.department = ?"
+                params.append(department)
+            if year and year != "All Academic Years":
+                query += " AND s.year = ?"
+                params.append(year)
 
             query += " ORDER BY sess.date DESC, a.marked_at DESC"
             cursor.execute(query, params)
             rows = cursor.fetchall()
             return [dict(r) for r in rows]
+

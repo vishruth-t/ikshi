@@ -74,7 +74,10 @@ class CameraWorker(QThread):
                         f"Attempt {retry_count} — Ensure phone server is active on Wi-Fi"
                     )
                     self.frame_received.emit(fallback)
-                    self.msleep(1500)
+                    for _ in range(15):
+                        if not self._running:
+                            break
+                        self.msleep(100)
                     continue
                 else:
                     retry_count = 0
@@ -96,7 +99,10 @@ class CameraWorker(QThread):
                 if self._cap is not None:
                     self._cap.release()
                     self._cap = None
-                self.msleep(1000)
+                for _ in range(10):
+                    if not self._running:
+                        break
+                    self.msleep(100)
 
         if self._cap:
             self._cap.release()
@@ -115,17 +121,17 @@ class CameraWorker(QThread):
 
     def stop(self):
         self._running = False
-        self.wait(2000)
+        self.wait(1500)
 
     def _create_placeholder_frame(self, main_msg: str, sub_msg: str = "Configure in Settings (⚙️)") -> np.ndarray:
         frame = np.zeros((settings.camera_height, settings.camera_width, 3), dtype=np.uint8)
         # Deep dark slate background
         cv2.rectangle(frame, (0, 0), (settings.camera_width, settings.camera_height), (22, 17, 11), -1)
         
-        # Center aperture graphic / icon
+        # Center aperture graphic / icon with #cba6f7 (BGR: 247, 166, 203)
         cx, cy = settings.camera_width // 2, settings.camera_height // 2 - 40
-        cv2.circle(frame, (cx, cy), 45, (56, 189, 248), 2)
-        cv2.circle(frame, (cx, cy), 15, (56, 189, 248), -1)
+        cv2.circle(frame, (cx, cy), 45, (247, 166, 203), 2)
+        cv2.circle(frame, (cx, cy), 15, (247, 166, 203), -1)
 
         # Primary Title
         (w1, h1), _ = cv2.getTextSize(main_msg, cv2.FONT_HERSHEY_DUPLEX, 0.75, 1)
@@ -136,5 +142,6 @@ class CameraWorker(QThread):
         cv2.putText(frame, sub_msg, (cx - w2 // 2, cy + 115), cv2.FONT_HERSHEY_DUPLEX, 0.55, (148, 163, 184), 1, cv2.LINE_AA)
         
         return frame
+
 
 

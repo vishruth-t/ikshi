@@ -21,8 +21,14 @@ def _resolve_portable_path(path_str: str, default_relative: str) -> str:
     # If it's an absolute path from another machine (e.g. /home/da/.. on Mac), fallback to current repo BASE_DIR
     return os.path.normpath(os.path.join(BASE_DIR, default_relative))
 
+from config.constants import DEFAULT_ACADEMIC_YEARS, DEFAULT_DEPARTMENTS
+
 @dataclass
 class AppSettings:
+    app_name: str = "FaceAttend"
+    default_academic_year: str = DEFAULT_ACADEMIC_YEARS[1] # 2025–26 default
+    default_department: str = DEFAULT_DEPARTMENTS[0] # Computer Science & Engineering default
+
     camera_index: int = 0
     camera_source: str = "0" # Can be device index ("0", "1") or Network URL ("http://192.168.1.100:8080/video", "rtsp://...")
     camera_fps: int = 30
@@ -44,6 +50,7 @@ class AppSettings:
     # Enrollment Quality Checks
     min_face_size: int = 60 # minimum width/height in pixels
     blur_threshold: float = 35.0 # Laplacian variance minimum
+
 
     def get_capture_source(self):
         """Returns int device index or str stream URL for OpenCV VideoCapture."""
