@@ -2,8 +2,9 @@ import os
 import logging
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
-    QStackedWidget, QLabel, QStatusBar, QMessageBox
+    QStackedWidget, QLabel, QStatusBar, QMessageBox, QFrame
 )
+
 from PySide6.QtCore import Qt, QThread, Slot, Signal
 from PySide6.QtGui import QFont, QIcon
 
@@ -111,21 +112,58 @@ class MainWindow(QMainWindow):
     def _setup_style(self):
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #0F172A;
+                background-color: #090D16;
             }
             QWidget {
-                font-family: 'Segoe UI', Inter, sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, 'Helvetica Neue', sans-serif;
                 color: #F8FAFC;
+                font-size: 13px;
+            }
+            QToolTip {
+                background-color: #1E293B;
+                color: #F8FAFC;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                padding: 6px 10px;
+                font-size: 12px;
             }
             QStatusBar {
-                background-color: #0B0F19;
+                background-color: #060911;
                 color: #94A3B8;
+                border-top: 1px solid #1E293B;
+                padding: 4px 12px;
+                font-size: 12px;
+            }
+            QScrollBar:vertical {
+                background: #090D16;
+                width: 8px;
+                border-radius: 4px;
+                margin: 2px;
+            }
+            QScrollBar::handle:vertical {
+                background: #1E293B;
+                min-height: 24px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #334155;
+            }
+            QScrollBar:horizontal {
+                background: #090D16;
+                height: 8px;
+                border-radius: 4px;
+                margin: 2px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #1E293B;
+                min-width: 24px;
+                border-radius: 4px;
             }
         """)
 
     def _create_sidebar(self) -> QWidget:
         sidebar = QWidget()
-        sidebar.setFixedWidth(240)
+        sidebar.setFixedWidth(250)
         sidebar.setStyleSheet("""
             QWidget {
                 background-color: #0B0F19;
@@ -135,39 +173,71 @@ class MainWindow(QMainWindow):
                 background-color: transparent;
                 color: #94A3B8;
                 text-align: left;
-                padding: 12px 20px;
-                font-size: 14px;
+                padding: 12px 18px;
+                font-size: 13px;
                 font-weight: 600;
                 border: none;
-                border-radius: 6px;
-                margin: 4px 8px;
+                border-radius: 10px;
+                margin: 3px 12px;
             }
             QPushButton:hover {
-                background-color: #1E293B;
+                background-color: #162032;
                 color: #F8FAFC;
             }
             QPushButton:checked {
-                background-color: #2563EB;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2563EB, stop:1 #3B82F6);
                 color: #FFFFFF;
+                font-weight: 700;
             }
         """)
         layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(0, 20, 0, 20)
-        layout.setSpacing(5)
+        layout.setContentsMargins(0, 24, 0, 16)
+        layout.setSpacing(4)
 
-        # App Brand Title
-        brand_label = QLabel("  FaceAttend")
-        brand_label.setStyleSheet("font-size: 20px; font-weight: bold; color: #60A5FA; padding-bottom: 20px;")
-        layout.addWidget(brand_label)
+        # App Brand Title & Subtitle Badge
+        brand_container = QWidget()
+        brand_layout = QVBoxLayout(brand_container)
+        brand_layout.setContentsMargins(20, 0, 20, 20)
+        brand_layout.setSpacing(4)
+
+        brand_row = QHBoxLayout()
+        brand_row.setSpacing(8)
+        
+        brand_icon = QLabel("⚡")
+        brand_icon.setStyleSheet("font-size: 22px; background: transparent;")
+        
+        brand_label = QLabel("FaceAttend")
+        brand_label.setStyleSheet("font-size: 21px; font-weight: 800; color: #FFFFFF; background: transparent; letter-spacing: -0.5px;")
+        
+        brand_row.addWidget(brand_icon)
+        brand_row.addWidget(brand_label)
+        brand_row.addStretch()
+        brand_layout.addLayout(brand_row)
+
+        brand_badge = QLabel("  LOCAL OPENCV SFACE AI  ")
+        brand_badge.setStyleSheet("""
+            color: #38BDF8;
+            background-color: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            padding: 3px 6px;
+        """)
+        brand_badge.setFixedWidth(170)
+        brand_layout.addWidget(brand_badge)
+
+        layout.addWidget(brand_container)
 
         self.nav_buttons = []
         nav_items = [
-            ("📊 Dashboard", 0),
-            ("📷 Live Attendance", 1),
-            ("👤 Register Student", 2),
-            ("👥 Student Directory", 3),
-            ("📈 Reports & Export", 4),
-            ("⚙️ Settings", 5)
+            ("📊  Dashboard", 0),
+            ("📷  Live Attendance", 1),
+            ("👤  Register Student", 2),
+            ("👥  Student Directory", 3),
+            ("📈  Reports & Export", 4),
+            ("⚙️  Settings", 5)
         ]
 
         for text, index in nav_items:
@@ -178,7 +248,34 @@ class MainWindow(QMainWindow):
             self.nav_buttons.append(btn)
 
         layout.addStretch()
+
+        # Sidebar Bottom System Status Card
+        sys_status = QFrame()
+        sys_status.setStyleSheet("""
+            QFrame {
+                background-color: #111827;
+                border: 1px solid #1E293B;
+                border-radius: 10px;
+                margin: 0 12px;
+                padding: 10px;
+            }
+        """)
+        sys_layout = QVBoxLayout(sys_status)
+        sys_layout.setContentsMargins(10, 8, 10, 8)
+        sys_layout.setSpacing(3)
+
+        status_dot = QLabel("● Engine Ready (Offline)")
+        status_dot.setStyleSheet("color: #34D399; font-size: 11px; font-weight: 700; background: transparent; border: none;")
+        
+        status_sub = QLabel("100% On-Device Privacy")
+        status_sub.setStyleSheet("color: #64748B; font-size: 10px; background: transparent; border: none;")
+
+        sys_layout.addWidget(status_dot)
+        sys_layout.addWidget(status_sub)
+        layout.addWidget(sys_status)
+
         return sidebar
+
 
     def switch_page(self, index: int):
         self.pages_stack.setCurrentIndex(index)
