@@ -2,6 +2,8 @@ import sys
 import os
 import logging
 from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+from models.download_models import ensure_models_exist
 from ui.main_window import MainWindow
 
 def setup_logging():
@@ -23,6 +25,11 @@ def setup_logging():
 
 def main():
     setup_logging()
+    
+    # Auto-ensure ONNX models exist (downloads in background if running on fresh machine/Mac/Windows)
+    logging.info("Checking face recognition neural models...")
+    ensure_models_exist()
+
     app = QApplication(sys.argv)
     app.setApplicationName("FaceAttend")
     app.setOrganizationName("FaceAttend")
@@ -34,3 +41,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

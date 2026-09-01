@@ -99,15 +99,17 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
----
-
-## Model Setup
-
-Download the official OpenCV ONNX model weights (`YuNet` and `SFace`):
+### 3. Launch Application
 
 ```bash
-python models/download_models.py
+python app.py
 ```
+*(Models are automatically verified and downloaded on first startup).*
+
+> [!NOTE]
+> **macOS Users (Camera Permissions)**:
+> When launching on macOS, you must grant Camera access to Terminal / VS Code. If your camera preview is black or unavailable, open **System Settings → Privacy & Security → Camera** and ensure your Terminal application is enabled.
+
 
 Expected ONNX files:
 - `models/face_detection/face_detection_yunet_2023mar.onnx`
@@ -139,21 +141,44 @@ pytest
 
 FaceAttend natively supports connecting your smartphone camera via local Wi-Fi or USB:
 
-### Option A: Using IP Webcam (Android)
-1. Install **IP Webcam** from Google Play Store on your phone.
-2. Connect your phone and PC to the same Wi-Fi network.
-3. In the app, scroll to the bottom and tap **Start server**.
-4. Note the URL shown on your phone screen (e.g. `http://192.168.1.50:8080`).
-5. Open FaceAttend, go to **Settings** (`⚙️ Settings`), enter `http://192.168.1.50:8080/video` in **Camera Source**, and click **Save & Apply Settings**.
+### Option A: Direct USB Cable via ADB (Zero Lag, No Wi-Fi, No Iriun)
+1. Enable **USB Debugging** in *Settings → Developer Options* on your Android phone.
+2. Connect your phone to your PC with a USB cable (allow debugging prompt on phone).
+3. Open **IP Webcam** or **DroidCam** on your phone and start the server.
+4. In FaceAttend **⚙️ Settings**, click **⚡ Auto-Connect USB (IP Webcam 8080)** or **(DroidCam 4747)**, or in terminal run:
+   ```bash
+   adb forward tcp:8080 tcp:8080
+   ```
+5. Set Camera Source to `http://127.0.0.1:8080/video` (or `4747/video`) and click **Save & Apply System Settings**.
 
-### Option B: Using DroidCam (Android / iOS)
-1. Install **DroidCam** on your phone.
-2. Start DroidCam and note the WiFi IP and port (e.g., `192.168.1.50` and port `4747`).
-3. In FaceAttend Settings, set **Camera Source** to `http://192.168.1.50:4747/video` and click **Save & Apply Settings**.
+### Option B: Android 14+ Built-in USB Webcam (No Extra Software)
+1. Connect your Android 14+ phone via USB cable.
+2. Pull down notifications, tap **"Charging this device via USB"**, and select **"Webcam"**.
+3. Android acts as a native plug-and-play USB UVC camera.
+4. Set Camera Source to device index `0`, `1`, or `2` in Settings.
 
-### Option C: Virtual Camera via USB
-1. Install DroidCam, Iriun Webcam, or EpocCam on your phone and PC client.
-2. Select the virtual camera device index (e.g. `0`, `1`, `2`) in Settings.
+### Option C: Wi-Fi Stream
+1. Connect phone and PC to the same Wi-Fi.
+2. Start server in IP Webcam or DroidCam on your phone.
+3. In FaceAttend Settings, enter `http://<PHONE_IP>:8080/video` and click **Save & Apply System Settings**.
+
+---
+
+## 📱 Mobile Web Companion (Classroom Roaming)
+
+FaceAttend includes a built-in zero-configuration local mobile web companion that runs over your local Wi-Fi network:
+
+1. Look at the bottom of the sidebar or dashboard banner in FaceAttend for your local URL:
+   ```text
+   http://<YOUR_PC_IP>:5555
+   ```
+2. Open this URL in **Safari / Chrome on your mobile phone or tablet**.
+3. You can now:
+   - **Start and Stop Attendance Sessions** directly from your phone while walking around the room.
+   - **Watch Live Verified Roll Call** appear in real-time on your phone screen as students face the camera.
+   - **Check Live Attendance Statistics** (Present %, Absent, Total Enrolled).
+
+
 
 
 ---

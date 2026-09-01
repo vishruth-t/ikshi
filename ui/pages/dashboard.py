@@ -1,9 +1,10 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, QFrame
 from PySide6.QtCore import Qt
 from ui.widgets.status_card import StatusCardWidget
 from ui.widgets.attendance_table import AttendanceTableWidget
 from attendance.session_manager import SessionManager
 from database.repositories import StudentRepository, AttendanceRepository
+from mobile_companion.server import get_local_ip
 
 class DashboardPage(QWidget):
     def __init__(self, session_manager: SessionManager, student_repo: StudentRepository, attendance_repo: AttendanceRepository, parent=None):
@@ -13,8 +14,8 @@ class DashboardPage(QWidget):
         self.attendance_repo = attendance_repo
         
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(28, 24, 28, 24)
-        self.layout.setSpacing(20)
+        self.layout.setContentsMargins(24, 20, 24, 20)
+        self.layout.setSpacing(16)
 
         # Header Hero Section
         header_container = QWidget()
@@ -36,7 +37,6 @@ class DashboardPage(QWidget):
 
         header_layout.addStretch()
 
-
         self.session_badge = QLabel("○ STANDBY")
         self.session_badge.setStyleSheet("""
             background-color: rgba(148, 163, 184, 0.12);
@@ -52,19 +52,43 @@ class DashboardPage(QWidget):
 
         self.layout.addWidget(header_container)
 
-        # Status Cards Grid
-        cards_layout = QHBoxLayout()
-        cards_layout.setSpacing(16)
+        # Mobile Companion Quick Access Bar
+        mobile_bar = QFrame()
+        mobile_bar.setStyleSheet("""
+            QFrame {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(56, 189, 248, 0.12), stop:1 rgba(16, 185, 129, 0.08));
+                border: 1px solid rgba(56, 189, 248, 0.3);
+                border-radius: 10px;
+                padding: 8px 14px;
+            }
+        """)
+        mobile_layout = QHBoxLayout(mobile_bar)
+        mobile_layout.setContentsMargins(10, 4, 10, 4)
+        mobile_layout.setSpacing(10)
+
+        mob_icon = QLabel("📱")
+        mob_icon.setStyleSheet("font-size: 18px; background: transparent; border: none;")
+        
+        mob_text = QLabel(f"<b>Mobile Web Companion:</b> Open <b>http://{get_local_ip()}:5555</b> on your phone's browser for live roll call and mobile session control.")
+        mob_text.setStyleSheet("color: #E2E8F0; font-size: 12px; background: transparent; border: none;")
+
+        mobile_layout.addWidget(mob_icon)
+        mobile_layout.addWidget(mob_text, stretch=1)
+        self.layout.addWidget(mobile_bar)
+
+        # Status Cards 2x2 Responsive Grid
+        cards_layout = QGridLayout()
+        cards_layout.setSpacing(14)
 
         self.card_active_session = StatusCardWidget("Active Session", "None", "No session running", "#3B82F6", icon="⚡")
         self.card_present = StatusCardWidget("Present Today", "0", "Students verified", "#10B981", icon="✅")
         self.card_absent = StatusCardWidget("Unverified / Absent", "0", "Students pending", "#EF4444", icon="⏳")
         self.card_total = StatusCardWidget("Total Directory", "0", "Enrolled biometrics", "#8B5CF6", icon="👥")
 
-        cards_layout.addWidget(self.card_active_session)
-        cards_layout.addWidget(self.card_present)
-        cards_layout.addWidget(self.card_absent)
-        cards_layout.addWidget(self.card_total)
+        cards_layout.addWidget(self.card_active_session, 0, 0)
+        cards_layout.addWidget(self.card_present, 0, 1)
+        cards_layout.addWidget(self.card_absent, 1, 0)
+        cards_layout.addWidget(self.card_total, 1, 1)
         self.layout.addLayout(cards_layout)
 
         # Recent Attendance Section Header
@@ -84,6 +108,7 @@ class DashboardPage(QWidget):
         # Attendance Table
         self.attendance_table = AttendanceTableWidget()
         self.layout.addWidget(self.attendance_table)
+
 
     def refresh(self):
         stats = self.session_manager.get_session_stats()

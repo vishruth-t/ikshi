@@ -215,6 +215,47 @@ class AttendancePage(QWidget):
             self.stats_card.set_value(str(present), f"{stats['attendance_percentage']:.1f}% of {total_students} verified")
             records = self.attendance_repo.get_session_attendance(stats["session_id"])
             self.attendance_table.set_data(records)
+            if self.btn_start.text() != "⏹ End Attendance Session":
+                self.btn_start.setText("⏹ End Attendance Session")
+                self.btn_start.setStyleSheet("""
+                    QPushButton {
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #DC2626, stop:1 #EF4444);
+                        color: white;
+                        font-weight: 700;
+                        font-size: 13px;
+                        padding: 10px;
+                        border-radius: 8px;
+                        border: none;
+                    }
+                    QPushButton:hover {
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #B91C1C, stop:1 #DC2626);
+                    }
+                """)
+                self.input_class.setEnabled(False)
+                self.input_subject.setEnabled(False)
+                if stats.get("class_name"):
+                    self.input_class.setText(stats["class_name"])
+                if stats.get("subject"):
+                    self.input_subject.setText(stats["subject"])
         else:
             self.stats_card.set_value("0", "Session inactive - Click Start")
             self.attendance_table.set_data([])
+            if self.btn_start.text() != "▶ Start Attendance Session":
+                self.btn_start.setText("▶ Start Attendance Session")
+                self.btn_start.setStyleSheet("""
+                    QPushButton {
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #10B981);
+                        color: white;
+                        font-weight: 700;
+                        font-size: 13px;
+                        padding: 10px;
+                        border-radius: 8px;
+                        border: none;
+                    }
+                    QPushButton:hover {
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #047857, stop:1 #059669);
+                    }
+                """)
+                self.input_class.setEnabled(True)
+                self.input_subject.setEnabled(True)
+

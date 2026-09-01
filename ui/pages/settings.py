@@ -46,12 +46,12 @@ class SettingsPage(QWidget):
         help_layout.setContentsMargins(8, 4, 8, 4)
         help_layout.setSpacing(4)
 
-        help_title = QLabel("📱 Quick Mobile Webcam Instructions:")
+        help_title = QLabel("🔌 USB Phone Connection (Zero Wi-Fi Lag & No Iriun Needed):")
         help_title.setStyleSheet("color: #38BDF8; font-weight: 800; font-size: 13px; background: transparent; border: none;")
         help_text = QLabel(
-            "1. Install free app 'IP Webcam' or 'DroidCam' on your Android or iPhone.\n"
-            "2. Connect your phone & PC to the same Wi-Fi network and start server in the app.\n"
-            "3. Enter the stream URL below (e.g. http://192.168.1.50:8080/video) and click 'Save Settings'."
+            "• Method 1 (USB Cable + ADB): Connect phone via USB with USB Debugging enabled, open IP Webcam or DroidCam, and click '🔌 Forward USB Port' below.\n"
+            "• Method 2 (Android 14+ Native UVC): Plug phone via USB, tap USB charging notification -> Choose 'Webcam' -> select camera index (e.g. 0, 1, 2).\n"
+            "• Method 3 (Wi-Fi): Enter phone Wi-Fi URL (e.g. http://192.168.x.x:8080/video)."
         )
         help_text.setStyleSheet("color: #94A3B8; font-size: 12px; background: transparent; border: none;")
         help_layout.addWidget(help_title)
@@ -62,7 +62,7 @@ class SettingsPage(QWidget):
         form_card = QFrame()
         form_card.setStyleSheet("""
             QFrame {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1E293B, stop:1 #111827);
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1E293B, stop:1 #111827);
                 border: 1px solid #334155;
                 border-radius: 14px;
                 padding: 16px;
@@ -89,15 +89,39 @@ class SettingsPage(QWidget):
             }
         """
 
-        # Camera Source with Presets
+        # Camera Source with Presets & USB Tool
         cam_source_container = QWidget()
         cam_source_layout = QVBoxLayout(cam_source_container)
         cam_source_layout.setContentsMargins(0, 0, 0, 0)
-        cam_source_layout.setSpacing(6)
+        cam_source_layout.setSpacing(8)
+
+        input_row = QHBoxLayout()
+        input_row.setSpacing(8)
 
         self.input_camera_source = QLineEdit(str(settings.camera_source or settings.camera_index))
         self.input_camera_source.setPlaceholderText("Device index (0, 1) or Stream URL (http://192.168.1.x:8080/video)")
         self.input_camera_source.setStyleSheet(input_style)
+        input_row.addWidget(self.input_camera_source, stretch=1)
+
+        btn_test_conn = QPushButton("📡 Test Stream Connection")
+        btn_test_conn.setStyleSheet("""
+            QPushButton {
+                background-color: #2563EB;
+                color: white;
+                font-size: 12px;
+                font-weight: 700;
+                padding: 8px 14px;
+                border-radius: 8px;
+                border: none;
+            }
+            QPushButton:hover {
+                background-color: #1D4ED8;
+            }
+        """)
+        btn_test_conn.clicked.connect(self.test_camera_connection)
+        input_row.addWidget(btn_test_conn)
+
+        cam_source_layout.addLayout(input_row)
 
         preset_row = QHBoxLayout()
         preset_row.setSpacing(8)
@@ -111,7 +135,7 @@ class SettingsPage(QWidget):
                     border: 1px solid #334155;
                     font-size: 11px;
                     font-weight: 600;
-                    padding: 4px 10px;
+                    padding: 5px 10px;
                     border-radius: 6px;
                 }
                 QPushButton:hover {
@@ -122,13 +146,65 @@ class SettingsPage(QWidget):
             b.clicked.connect(lambda: self.input_camera_source.setText(val))
             return b
 
-        preset_row.addWidget(make_preset_btn("USB Camera (0)", "0"))
-        preset_row.addWidget(make_preset_btn("IP Webcam (8080)", "http://192.168.1.100:8080/video"))
-        preset_row.addWidget(make_preset_btn("DroidCam (4747)", "http://192.168.1.100:4747/video"))
+        btn_usb_default = make_preset_btn("Built-in USB (0)", "0")
+        btn_wifi_ipwebcam = make_preset_btn("Wi-Fi IP Webcam", "http://192.168.1.100:8080/video")
+        btn_usb_ipwebcam = make_preset_btn("USB ADB (127.0.0.1:8080)", "http://127.0.0.1:8080/video")
+        btn_usb_droidcam = make_preset_btn("USB ADB (127.0.0.1:4747)", "http://127.0.0.1:4747/video")
+
+        preset_row.addWidget(btn_usb_default)
+        preset_row.addWidget(btn_wifi_ipwebcam)
+        preset_row.addWidget(btn_usb_ipwebcam)
+        preset_row.addWidget(btn_usb_droidcam)
         preset_row.addStretch()
 
-        cam_source_layout.addWidget(self.input_camera_source)
+        # USB ADB Forwarding Action Row
+        adb_action_row = QHBoxLayout()
+        adb_action_row.setSpacing(8)
+
+        btn_adb_forward_8080 = QPushButton("⚡ Auto-Forward USB (IP Webcam 8080)")
+        btn_adb_forward_8080.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(56, 189, 248, 0.15);
+                color: #38BDF8;
+                border: 1px solid rgba(56, 189, 248, 0.35);
+                font-size: 11px;
+                font-weight: 700;
+                padding: 6px 12px;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background-color: #0284C7;
+                color: white;
+            }
+        """)
+        btn_adb_forward_8080.clicked.connect(lambda: self.forward_adb_port(8080))
+
+        btn_adb_forward_4747 = QPushButton("⚡ Auto-Forward USB (DroidCam 4747)")
+        btn_adb_forward_4747.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(139, 92, 246, 0.15);
+                color: #A78BFA;
+                border: 1px solid rgba(139, 92, 246, 0.35);
+                font-size: 11px;
+                font-weight: 700;
+                padding: 6px 12px;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background-color: #7C3AED;
+                color: white;
+            }
+        """)
+        btn_adb_forward_4747.clicked.connect(lambda: self.forward_adb_port(4747))
+
+        adb_action_row.addWidget(btn_adb_forward_8080)
+        adb_action_row.addWidget(btn_adb_forward_4747)
+        adb_action_row.addStretch()
+
         cam_source_layout.addLayout(preset_row)
+        cam_source_layout.addLayout(adb_action_row)
+
+
 
         self.input_metric = QComboBox()
         self.input_metric.addItems(["cosine", "l2"])
@@ -210,6 +286,129 @@ class SettingsPage(QWidget):
         settings.save()
         self.settings_saved.emit()
         QMessageBox.information(self, "Settings Saved", f"Application settings successfully saved!\nActive camera source: {cam_src}")
+
+    def forward_adb_port(self, port: int = 8080):
+        """Forward localhost TCP port to connected Android device over USB cable via ADB."""
+        import subprocess
+        try:
+            res = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=4)
+            lines = [line.strip() for line in res.stdout.strip().split("\n")[1:] if line.strip() and "\tdevice" in line]
+            
+            if not lines:
+                QMessageBox.warning(
+                    self,
+                    "No Android USB Device Detected",
+                    "No Android phone detected via ADB.\n\n"
+                    "Please check:\n"
+                    "1. Phone is connected via USB cable.\n"
+                    "2. 'USB Debugging' is enabled in Developer Options on your phone.\n"
+                    "3. Accept the 'Allow USB debugging' prompt on your phone screen."
+                )
+                return False
+            
+            subprocess.run(["adb", "forward", f"tcp:{port}", f"tcp:{port}"], check=True, timeout=4)
+            stream_url = f"http://127.0.0.1:{port}/video"
+            self.input_camera_source.setText(stream_url)
+            
+            QMessageBox.information(
+                self,
+                "USB ADB Connected!",
+                f"Successfully forwarded USB port {port}!\n\n"
+                f"Camera source set to: {stream_url}\n\n"
+                f"Make sure the video server is started on your phone, then click 'Save & Apply System Settings'."
+            )
+            return True
+        except Exception as e:
+            QMessageBox.critical(self, "ADB Command Error", f"Failed to execute adb forward: {e}")
+            return False
+
+    def test_camera_connection(self):
+        """Test whether the configured camera index or stream URL is working and reachable."""
+        import cv2
+        import socket
+
+        raw_src = self.input_camera_source.text().strip()
+        if not raw_src:
+            raw_src = "0"
+
+        # 1. Local Device Index
+        if raw_src.isdigit():
+            idx = int(raw_src)
+            cap = cv2.VideoCapture(idx)
+            if cap.isOpened():
+                ret, frame = cap.read()
+                cap.release()
+                if ret and frame is not None:
+                    QMessageBox.information(
+                        self,
+                        "Camera Test Passed!",
+                        f"✓ Local USB Camera device (Index {idx}) successfully opened!\nResolution: {frame.shape[1]}x{frame.shape[0]} px"
+                    )
+                    return
+            QMessageBox.warning(self, "Camera Test Failed", f"✕ Unable to open local camera device index {idx}.")
+            return
+
+        # 2. Network Stream URL
+        url = raw_src
+        if not (url.startswith("http://") or url.startswith("https://") or url.startswith("rtsp://")):
+            url = "http://" + url
+        if "://" in url:
+            proto, rest = url.split("://", 1)
+            if "/" not in rest:
+                url = f"{proto}://{rest}/video"
+            elif rest.endswith("/"):
+                url = f"{proto}://{rest}video"
+
+        # Check Wi-Fi socket connectivity first
+        try:
+            host_port = url.split("://", 1)[1].split("/", 1)[0]
+            host, port_str = host_port.split(":") if ":" in host_port else (host_port, "80")
+            port = int(port_str)
+            
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3.0)
+            res = sock.connect_ex((host, port))
+            sock.close()
+
+            if res != 0:
+                QMessageBox.critical(
+                    self,
+                    "Wi-Fi Stream Unreachable",
+                    f"✕ Cannot connect to {host}:{port} over the network.\n\n"
+                    f"Troubleshooting Guide:\n"
+                    f"1. Is your phone on the SAME Wi-Fi as your computer?\n"
+                    f"2. Is IP Webcam or DroidCam server started on your phone?\n"
+                    f"3. Verify the IP on your phone screen (e.g. {host})."
+                )
+                return
+        except Exception as e:
+            QMessageBox.critical(self, "Network Check Error", f"Network diagnostic failed: {e}")
+            return
+
+        # Test video stream capture
+        cap = cv2.VideoCapture(url)
+        if cap.isOpened():
+            ret, frame = cap.read()
+            cap.release()
+            if ret and frame is not None and frame.size > 0:
+                self.input_camera_source.setText(url)
+                QMessageBox.information(
+                    self,
+                    "Wi-Fi Stream Verified!",
+                    f"✓ Successfully received video frames from mobile stream!\n\n"
+                    f"Stream URL: {url}\n"
+                    f"Resolution: {frame.shape[1]}x{frame.shape[0]} px\n\n"
+                    f"Click 'Save & Apply System Settings' to apply."
+                )
+                return
+
+        QMessageBox.warning(
+            self,
+            "Stream Video Read Failed",
+            f"Connected to {host}:{port}, but could not decode video stream.\n\n"
+            f"Ensure the URL ends in '/video' (e.g. http://{host}:{port}/video)."
+        )
+
 
 
 

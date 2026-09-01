@@ -49,3 +49,23 @@ def test_settings_camera_source_parsing():
     s3 = AppSettings(camera_source="rtsp://192.168.1.50:554/live")
     assert s3.get_capture_source() == "rtsp://192.168.1.50:554/live"
 
+def test_settings_foreign_os_path_resolution(tmp_path):
+    # Simulate a config saved on a completely different Linux or Mac user's machine
+    foreign_config = {
+        "camera_index": 0,
+        "detection_model_path": "/home/alien_user/ikshi/models/face_detection/face_detection_yunet_2023mar.onnx",
+        "recognition_model_path": "/Users/alien_mac/ikshi/models/sface/face_recognition_sface_2021dec.onnx",
+        "db_path": "C:\\Users\\alien_win\\ikshi\\data\\attendance.db"
+    }
+    cfg_file = tmp_path / "foreign_config.json"
+    with open(cfg_file, "w") as f:
+        json.dump(foreign_config, f)
+
+    loaded = AppSettings.load(str(cfg_file))
+    # Must resolve cleanly to this current repository's models and database paths
+    assert os.path.isabs(loaded.detection_model_path)
+    assert "face_detection_yunet_2023mar.onnx" in loaded.detection_model_path
+    assert "face_recognition_sface_2021dec.onnx" in loaded.recognition_model_path
+    assert "attendance.db" in loaded.db_path
+
+
