@@ -176,3 +176,10 @@ All 51 unit and integration tests verify:
 1. **Feature Vectors Only**: Raw facial images and student photos are never saved to disk. Only 128-dimensional floating point vectors are stored.
 2. **Local Isolation**: All recognition and database operations are executed strictly on the local machine with no telemetry or external network calls.
 3. **Data Deletion**: Disabling or deleting a student record removes all associated biometric feature vectors.
+
+
+# Remove for current user
+Set-ExecutionPolicy -ExecutionPolicy Undefined -Scope CurrentUser
+
+# Remove for all users on the local machine
+Set-ExecutionPolicy -ExecutionPolicy Undefined -Scope LocalMachine   
