@@ -68,4 +68,25 @@ def test_settings_foreign_os_path_resolution(tmp_path):
     assert "face_recognition_sface_2021dec.onnx" in loaded.recognition_model_path
     assert "attendance.db" in loaded.db_path
 
+def test_settings_ir_liveness_configuration():
+    s = AppSettings(
+        enable_ir_liveness=True,
+        ir_camera_index=2,
+        ir_camera_source="2",
+        ir_liveness_threshold=0.65,
+        ir_fov_scale_x=1.1,
+        ir_fov_scale_y=1.1,
+        ir_offset_x=5,
+        ir_offset_y=-3
+    )
+    assert s.enable_ir_liveness is True
+    assert s.get_ir_capture_source() == 2
+    assert s.ir_liveness_threshold == 0.65
+    assert s.ir_fov_scale_x == 1.1
+
+    # String source e.g. RTSP or URL
+    s2 = AppSettings(ir_camera_source="http://192.168.1.101:8080/video")
+    assert s2.get_ir_capture_source() == "http://192.168.1.101:8080/video"
+
+
 

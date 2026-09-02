@@ -64,7 +64,14 @@ def test_session_and_attendance_duplicate_prevention(temp_db):
     student = st_repo.create(Student(student_number="STU003", name="Bob", department="ECE", year="1st Year"))
     session = sess_repo.create_session(AttendanceSession(subject="Math", class_name="101"))
 
-    att = Attendance(session_id=session.id, student_id=student.id, status="Present", similarity=0.85)
+    att = Attendance(
+        session_id=session.id,
+        student_id=student.id,
+        status="Present",
+        similarity=0.85,
+        liveness_score=0.78,
+        liveness_passed=True
+    )
 
     # First recording -> success
     first_res = att_repo.record_attendance(att)
@@ -77,6 +84,8 @@ def test_session_and_attendance_duplicate_prevention(temp_db):
     records = att_repo.get_session_attendance(session.id)
     assert len(records) == 1
     assert records[0]["student_number"] == "STU003"
+    assert records[0]["liveness_score"] == 0.78
+    assert records[0]["liveness_passed"] == 1
 
 def test_student_deletion_and_cascade(temp_db):
     st_repo = StudentRepository(temp_db)
@@ -141,5 +150,63 @@ def test_report_data_filtering(temp_db):
     res_date = att_repo.get_report_data(start_date="2026-09-02", end_date="2026-09-02")
     assert len(res_date) == 1
     assert res_date[0]["name"] == "Eve"
+
+
+def test_embedding_repository_filters_and_queries(temp_db):
+    st_repo = StudentRepository(temp_db)
+    emb_repo = FaceEmbeddingRepository(temp_db)
+
+    student = st_repo.create(Student(student_number="STU007", name="Frank", department="IT", year="3rd Year"))
+
+    # Add 2 RGB embeddings and 2 IR embeddings
+    emb_repo.add_embedding(FaceEmbedding(student_id=student.id, embedding=np.ones(128, dtype=np.float32), model_name="SFace"))
+    emb_repo.add_embedding(FaceEmbedding(student_id=student.id, embedding=np.ones(128, dtype=np.float32) * 2, model_name="SFace"))
+    emb_repo.add_embedding(FaceEmbedding(student_id=student.id, embedding=np.ones(128, dtype=np.float32) * 3, model_name="SFace-IR"))
+    emb_repo.add_embedding(FaceEmbedding(student_id=student.id, embedding=np.ones(128, dtype=np.float32) * 4, model_name="SFace-IR"))
+
+    # Query all
+    assert len(emb_repo.get_all_embeddings()) == 4
+    # Query filtered by RGB
+    assert len(emb_repo.get_all_embeddings(model_name="SFace")) == 2
+    # Query filtered by IR
+    assert len(emb_repo.get_all_embeddings(model_name="SFace-IR")) == 2
+
+    # Query student specific
+    assert len(emb_repo.get_student_embeddings(student.id)) == 4
+    assert len(emb_repo.get_student_embeddings(student.id, model_name="SFace-IR")) == 2
+    assert len(emb_repo.get_student_embeddings(student.id, model_name="SFace")) == 2
+
+
+def test_delete_records_by_ids_and_clear_all_attendance(temp_db):
+    st_repo = StudentRepository(temp_db)
+    sess_repo = SessionRepository(temp_db)
+    att_repo = AttendanceRepository(temp_db)
+
+    s1 = st_repo.create(Student(student_number="STU008", name="Grace", department="CS", year="1st Year"))
+    s2 = st_repo.create(Student(student_number="STU009", name="Heidi", department="CS", year="1st Year"))
+
+    sess1 = sess_repo.create_session(AttendanceSession(subject="CS101", class_name="A"))
+    sess2 = sess_repo.create_session(AttendanceSession(subject="CS102", class_name="B"))
+
+    att_repo.record_attendance(Attendance(session_id=sess1.id, student_id=s1.id, status="Present", similarity=0.9))
+    att_repo.record_attendance(Attendance(session_id=sess1.id, student_id=s2.id, status="Present", similarity=0.85))
+    att_repo.record_attendance(Attendance(session_id=sess2.id, student_id=s1.id, status="Present", similarity=0.92))
+
+    data = att_repo.get_report_data()
+    assert len(data) == 3
+
+    # Delete 1 record by ID
+    rec_id = data[0]["id"]
+    deleted = att_repo.delete_records_by_ids([rec_id])
+    assert deleted == 1
+    assert len(att_repo.get_report_data()) == 2
+
+    # Clear all remaining records
+    total_cleared = att_repo.clear_all_attendance()
+    assert total_cleared == 2
+    assert len(att_repo.get_report_data()) == 0
+    assert len(sess_repo.list_sessions()) == 0
+
+
 
 

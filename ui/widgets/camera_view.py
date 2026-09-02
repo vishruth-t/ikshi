@@ -28,6 +28,38 @@ class CameraViewWidget(QWidget):
 
         self.latest_frame: Optional[np.ndarray] = None
         self.latest_results: List[RecognitionResult] = []
+        self.show_standby_placeholder()
+
+    def show_standby_placeholder(
+        self,
+        main_text: str = "Session in Standby",
+        sub_text: str = "Click 'Start Session' to activate live camera feeds"
+    ):
+        """Render clean standby graphic when cameras are offline or in standby."""
+        self.latest_frame = None
+        self.latest_results = []
+
+        h, w = 480, 640
+        frame = np.zeros((h, w, 3), dtype=np.uint8)
+        cv2.rectangle(frame, (0, 0), (w, h), (13, 17, 23), -1)
+
+        cx, cy = w // 2, h // 2 - 25
+        # Standby camera aperture icon
+        cv2.circle(frame, (cx, cy), 38, (48, 54, 61), 2)
+        cv2.circle(frame, (cx, cy), 14, (48, 54, 61), -1)
+
+        (w1, h1), _ = cv2.getTextSize(main_text, cv2.FONT_HERSHEY_DUPLEX, 0.70, 1)
+        cv2.putText(frame, main_text, (cx - w1 // 2, cy + 65), cv2.FONT_HERSHEY_DUPLEX, 0.70, (240, 246, 252), 1, cv2.LINE_AA)
+
+        (w2, h2), _ = cv2.getTextSize(sub_text, cv2.FONT_HERSHEY_DUPLEX, 0.45, 1)
+        cv2.putText(frame, sub_text, (cx - w2 // 2, cy + 96), cv2.FONT_HERSHEY_DUPLEX, 0.45, (139, 148, 158), 1, cv2.LINE_AA)
+
+        qimg = cv_to_qimage(frame)
+        pixmap = QPixmap.fromImage(qimg)
+        self.image_label.setPixmap(pixmap)
+
+    def clear(self):
+        self.show_standby_placeholder()
 
     @Slot(np.ndarray)
     def update_frame(self, frame: np.ndarray):
@@ -85,13 +117,20 @@ class CameraViewWidget(QWidget):
             w = max(1, min(img_w - x, w))
             h = max(1, min(img_h - y, h))
 
-            if res.confirmed and res.student_id is not None:
+            # Visual status styling considering recognition and IR liveness
+            if res.liveness_passed is False and res.student_id is not None:
+                color = (45, 80, 245) # Red-Amber (BGR)
+                score_tag = f" ({int(res.liveness_score * 100)}%)" if res.liveness_score is not None else ""
+                label_text = f"{res.name} • Spoof Detected{score_tag}"
+            elif res.confirmed and res.student_id is not None:
                 color = (67, 160, 46) # Green (BGR)
-                label_text = f"{res.name} ({int(res.similarity * 100)}%)"
+                liveness_tag = " • Live" if res.liveness_passed is True and res.liveness_status == "passed" else ""
+                pose_tag = f" • {res.matched_pose}" if res.matched_pose else ""
+                label_text = f"{res.name} ({int(res.similarity * 100)}%{pose_tag}){liveness_tag}"
             elif res.student_id is not None:
                 color = (247, 166, 203) # Mauve #cba6f7 (BGR)
-                label_text = f"Verifying {res.name}..."
-
+                pose_tag = f" ({res.matched_pose})" if res.matched_pose else ""
+                label_text = f"Verifying {res.name}{pose_tag}..."
             elif res.name in ["Target Ready", "Sample Target", "Adjust Position", "Hold still", "Move closer", "Center your face", "Position your face"]:
                 color = (67, 160, 46) if res.confirmed else (245, 158, 11)
                 label_text = res.name

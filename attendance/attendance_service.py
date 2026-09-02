@@ -5,6 +5,8 @@ from database.repositories import AttendanceRepository, StudentRepository
 from database.models import Attendance, RecognitionResult
 from attendance.session_manager import SessionManager
 
+from config.settings import settings
+
 logger = logging.getLogger(__name__)
 
 class AttendanceService:
@@ -20,7 +22,8 @@ class AttendanceService:
 
     def process_recognition(self, result: RecognitionResult) -> Tuple[bool, str]:
         """
-        Record attendance if student is valid, active, session active, and not already marked.
+        Record attendance if student is valid, active, session active, not already marked,
+        and passes IR anti-spoofing liveness check (if enabled).
         Returns (success: bool, status_message: str)
         """
         if not result.confirmed or result.student_id is None:
@@ -34,6 +37,15 @@ class AttendanceService:
         if not student or not student.active:
             return False, f"Student ID {result.student_id} is inactive or non-existent."
 
+        # IR Anti-Spoofing Liveness Gate
+        if settings.enable_ir_liveness and result.liveness_passed is False:
+            score_str = f"{int(result.liveness_score * 100)}%" if result.liveness_score is not None else "N/A"
+            logger.warning(
+                f"Attendance blocked for {student.name} ({student.student_number}): "
+                f"IR liveness check failed ({result.liveness_message}, score={score_str})"
+            )
+            return False, f"Liveness check failed for {student.name} ({result.liveness_message or 'Spoof detected'})"
+
         # Application-level duplicate check
         if self.attendance_repo.is_marked(current_session.id, student.id):
             return False, f"Attendance already marked for {student.name}."
@@ -43,7 +55,9 @@ class AttendanceService:
             student_id=student.id,
             marked_at=datetime.now().isoformat(),
             status="Present",
-            similarity=result.similarity
+            similarity=result.similarity,
+            liveness_score=result.liveness_score,
+            liveness_passed=result.liveness_passed
         )
 
         inserted = self.attendance_repo.record_attendance(attendance_record)

@@ -11,6 +11,8 @@ from config.settings import settings
 
 class AttendancePage(QWidget):
     camera_source_changed = Signal(str)
+    session_started = Signal()
+    session_ended = Signal()
 
     def __init__(
         self,
@@ -38,17 +40,26 @@ class AttendancePage(QWidget):
         title_box = QVBoxLayout()
         title_box.setSpacing(2)
         
-        header = QLabel("Live Attendance")
-        header.setStyleSheet("font-size: 18px; font-weight: 700; color: #F0F6FC; letter-spacing: -0.2px;")
-        
-        subtitle = QLabel("Real-time biometric recognition feed and session metrics")
-        subtitle.setStyleSheet("font-size: 12px; color: #8B949E;")
+        self.header_title = QLabel("Live Attendance")
+        self.subtitle = QLabel("Real-time biometric recognition feed and session metrics")
 
-        title_box.addWidget(header)
-        title_box.addWidget(subtitle)
+        title_box.addWidget(self.header_title)
+        title_box.addWidget(self.subtitle)
         header_layout.addLayout(title_box)
 
         header_layout.addStretch()
+
+        self.ir_badge = QLabel("IR Anti-Spoof: Off")
+        self.ir_badge.setStyleSheet("""
+            background-color: #21262D;
+            color: #8B949E;
+            border: 1px solid #30363D;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+        """)
+        header_layout.addWidget(self.ir_badge)
 
         self.session_badge = QLabel("Standby")
         self.session_badge.setStyleSheet("""
@@ -89,10 +100,9 @@ class AttendancePage(QWidget):
         cam_header = QHBoxLayout()
         cam_header.setSpacing(8)
 
-        cam_title = QLabel("Recognition Feed")
-        cam_title.setStyleSheet("font-weight: 600; font-size: 13px; color: #F0F6FC;")
+        self.cam_title = QLabel("Recognition Feed")
 
-        cam_header.addWidget(cam_title)
+        cam_header.addWidget(self.cam_title)
         cam_header.addStretch()
 
         # Quick Camera Selector
@@ -176,27 +186,11 @@ class AttendancePage(QWidget):
         form = QHBoxLayout()
         form.setSpacing(10)
 
-        input_style = """
-            QLineEdit {
-                background-color: #0D1117;
-                color: #F0F6FC;
-                border: 1px solid #30363D;
-                padding: 6px 10px;
-                border-radius: 6px;
-                font-size: 12px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #cba6f7;
-            }
-        """
-
         self.input_class = QLineEdit()
         self.input_class.setPlaceholderText("Class / Room (e.g. CS-101)")
-        self.input_class.setStyleSheet(input_style)
         
         self.input_subject = QLineEdit()
         self.input_subject.setPlaceholderText("Subject (e.g. Computer Vision)")
-        self.input_subject.setStyleSheet(input_style)
 
         form.addWidget(self.input_class, stretch=1)
         form.addWidget(self.input_subject, stretch=1)
@@ -269,6 +263,7 @@ class AttendancePage(QWidget):
             """)
             self.input_class.setEnabled(False)
             self.input_subject.setEnabled(False)
+            self.session_started.emit()
         else:
             self.session_manager.end_session()
             self.btn_start.setText("Start Session")
@@ -288,15 +283,105 @@ class AttendancePage(QWidget):
             """)
             self.input_class.setEnabled(True)
             self.input_subject.setEnabled(True)
+            self.session_ended.emit()
         self.refresh()
 
     @Slot()
+    def update_ir_status(self, active: bool, message: str = ""):
+        self.is_ir_hardware_active = active
+        if active:
+            self.ir_badge.setText("● IR Anti-Spoof: Active")
+            self.ir_badge.setStyleSheet("""
+                background-color: #162B1D;
+                color: #3FB950;
+                border: 1px solid #238636;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            """)
+        elif settings.enable_ir_liveness:
+            self.ir_badge.setText("○ IR Sensor: Not Found (RGB Mode)")
+            self.ir_badge.setStyleSheet("""
+                background-color: #282114;
+                color: #D29922;
+                border: 1px solid #9E6A03;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            """)
+        else:
+            self.ir_badge.setText("○ Standard Webcam (RGB Mode)")
+            self.ir_badge.setStyleSheet("""
+                background-color: #21262D;
+                color: #8B949E;
+                border: 1px solid #30363D;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            """)
+
+    def apply_theme(self, theme_name: str = None):
+        from ui.utils.theme import get_palette
+        theme = theme_name or getattr(settings, "theme", "dark")
+        p = get_palette(theme)
+        
+        self.header_title.setStyleSheet(f"font-size: 18px; font-weight: 700; color: {p['text_primary']}; letter-spacing: -0.2px; background: transparent; border: none;")
+        self.subtitle.setStyleSheet(f"font-size: 12px; color: {p['text_secondary']}; background: transparent; border: none;")
+        self.cam_title.setStyleSheet(f"font-weight: 600; font-size: 13px; color: {p['text_primary']}; background: transparent; border: none;")
+        self.table_title.setStyleSheet(f"font-weight: 600; font-size: 13px; color: {p['text_primary']}; background: transparent; border: none;")
+        
+        if hasattr(self, "card_active_session"):
+            self.card_active_session.apply_theme(theme)
+            self.card_present.apply_theme(theme)
+            self.card_absent.apply_theme(theme)
+            self.card_total.apply_theme(theme)
+        if hasattr(self, "attendance_table"):
+            self.attendance_table.apply_theme(theme)
+        self.refresh()
+
     def handle_attendance_marked(self, result):
         self.refresh()
 
     def refresh(self):
         stats = self.session_manager.get_session_stats()
         total_students = len(self.student_repo.get_all(active_only=True))
+
+        if getattr(self, "is_ir_hardware_active", False):
+            self.ir_badge.setText("● IR Anti-Spoof: Active")
+            self.ir_badge.setStyleSheet("""
+                background-color: #162B1D;
+                color: #3FB950;
+                border: 1px solid #238636;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            """)
+        elif settings.enable_ir_liveness:
+            self.ir_badge.setText("○ IR Sensor: Not Found (RGB Mode)")
+            self.ir_badge.setStyleSheet("""
+                background-color: #282114;
+                color: #D29922;
+                border: 1px solid #9E6A03;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            """)
+        else:
+            self.ir_badge.setText("○ Standard Webcam (RGB Mode)")
+            self.ir_badge.setStyleSheet("""
+                background-color: #21262D;
+                color: #8B949E;
+                border: 1px solid #30363D;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            """)
 
         if stats["active"]:
             self.session_badge.setText(f"Active: {stats['class_name']}")

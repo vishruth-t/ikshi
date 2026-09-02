@@ -1,5 +1,6 @@
 {
-    "app_name": "ikshi",
+    "BASE_DIR": "/home/da/sic/ikshi",
+    "app_name": "IKSHI",
     "default_academic_year": "2025\u201326",
     "default_department": "Computer Science & Engineering",
     "camera_index": 0,
@@ -14,5 +15,15 @@
     "confirmation_frames": 3,
     "db_path": "data/attendance.db",
     "min_face_size": 60,
-    "blur_threshold": 35.0
+    "blur_threshold": 35.0,
+    "enable_ir_liveness": true,
+    "ir_camera_index": 2,
+    "ir_camera_source": "2",
+    "ir_liveness_threshold": 0.6,
+    "ir_fov_scale_x": 1.0,
+    "ir_fov_scale_y": 1.0,
+    "ir_offset_x": 0,
+    "ir_offset_y": 0,
+    "enable_sound_chime": true,
+    "theme": "dark"
 }

@@ -121,14 +121,15 @@ class FaceEmbeddingRepository:
 
     def add_embedding(self, embedding: FaceEmbedding) -> FaceEmbedding:
         blob_data = embedding.embedding.astype(np.float32).tobytes()
+        pose_tag = getattr(embedding, "pose_tag", "frontal") or "frontal"
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO face_embeddings (student_id, embedding, model_name, model_version, metric, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO face_embeddings (student_id, embedding, model_name, model_version, metric, pose_tag, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (embedding.student_id, blob_data, embedding.model_name, embedding.model_version, embedding.metric, embedding.created_at)
+                (embedding.student_id, blob_data, embedding.model_name, embedding.model_version, embedding.metric, pose_tag, embedding.created_at)
             )
             embedding.id = cursor.lastrowid
             conn.commit()
@@ -140,27 +141,59 @@ class FaceEmbeddingRepository:
             cursor.execute("DELETE FROM face_embeddings WHERE student_id = ?", (student_id,))
             conn.commit()
 
-    def get_all_embeddings(self) -> List[Tuple[int, str, str, np.ndarray]]:
+    def get_all_embeddings(self, model_name: Optional[str] = None) -> List[Tuple[int, str, str, np.ndarray, str]]:
         """
-        Returns list of (student_id, student_number, student_name, embedding_vector)
-        for all active students.
+        Returns list of (student_id, student_number, student_name, embedding_vector, pose_tag)
+        for all active students. Optionally filters by model_name (e.g. 'SFace' vs 'SFace-IR').
         """
         results = []
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT e.student_id, s.student_number, s.name, e.embedding
-                FROM face_embeddings e
-                JOIN students s ON e.student_id = s.id
-                WHERE s.active = 1
-                """
-            )
+            if model_name:
+                cursor.execute(
+                    """
+                    SELECT e.student_id, s.student_number, s.name, e.embedding, COALESCE(e.pose_tag, 'frontal') AS pose_tag
+                    FROM face_embeddings e
+                    JOIN students s ON e.student_id = s.id
+                    WHERE s.active = 1 AND e.model_name = ?
+                    """,
+                    (model_name,)
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT e.student_id, s.student_number, s.name, e.embedding, COALESCE(e.pose_tag, 'frontal') AS pose_tag
+                    FROM face_embeddings e
+                    JOIN students s ON e.student_id = s.id
+                    WHERE s.active = 1
+                    """
+                )
             rows = cursor.fetchall()
             for r in rows:
                 vector = np.frombuffer(r["embedding"], dtype=np.float32)
-                results.append((r["student_id"], r["student_number"], r["name"], vector))
+                p_tag = r["pose_tag"] if "pose_tag" in r.keys() else "frontal"
+                results.append((r["student_id"], r["student_number"], r["name"], vector, p_tag))
         return results
+
+    def get_student_embeddings(self, student_id: int, model_name: Optional[str] = None) -> List[np.ndarray]:
+        """Returns all embedding vectors stored for a given student, optionally filtered by model_name."""
+        embeddings = []
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            if model_name:
+                cursor.execute(
+                    "SELECT embedding FROM face_embeddings WHERE student_id = ? AND model_name = ?",
+                    (student_id, model_name)
+                )
+            else:
+                cursor.execute(
+                    "SELECT embedding FROM face_embeddings WHERE student_id = ?",
+                    (student_id,)
+                )
+            rows = cursor.fetchall()
+            for r in rows:
+                embeddings.append(np.frombuffer(r["embedding"], dtype=np.float32))
+        return embeddings
 
 
 class SessionRepository:
@@ -233,12 +266,13 @@ class AttendanceRepository:
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor()
+                liveness_val = 1 if attendance.liveness_passed is True else (0 if attendance.liveness_passed is False else None)
                 cursor.execute(
                     """
-                    INSERT INTO attendance (session_id, student_id, marked_at, status, similarity)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO attendance (session_id, student_id, marked_at, status, similarity, liveness_score, liveness_passed)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (attendance.session_id, attendance.student_id, attendance.marked_at, attendance.status, attendance.similarity)
+                    (attendance.session_id, attendance.student_id, attendance.marked_at, attendance.status, attendance.similarity, attendance.liveness_score, liveness_val)
                 )
                 attendance.id = cursor.lastrowid
                 conn.commit()
@@ -260,6 +294,7 @@ class AttendanceRepository:
             cursor.execute(
                 """
                 SELECT a.id, a.session_id, a.student_id, a.marked_at, a.status, a.similarity,
+                       a.liveness_score, a.liveness_passed,
                        s.student_number, s.name, s.department, s.year
                 FROM attendance a
                 JOIN students s ON a.student_id = s.id
@@ -285,7 +320,8 @@ class AttendanceRepository:
             query = """
                 SELECT a.id, sess.date, sess.subject, sess.class_name,
                        s.student_number, s.name, s.department, s.year,
-                       a.marked_at, a.status, a.similarity
+                       a.marked_at, a.status, a.similarity,
+                       a.liveness_score, a.liveness_passed
                 FROM attendance a
                 JOIN attendance_sessions sess ON a.session_id = sess.id
                 JOIN students s ON a.student_id = s.id
@@ -323,6 +359,7 @@ class AttendanceRepository:
             cursor.execute(
                 """
                 SELECT a.id, a.session_id, a.student_id, a.marked_at, a.status, a.similarity,
+                       a.liveness_score, a.liveness_passed,
                        s.student_number, s.name, s.department, s.year,
                        sess.class_name, sess.subject
                 FROM attendance a
@@ -335,5 +372,104 @@ class AttendanceRepository:
             )
             rows = cursor.fetchall()
             return [dict(r) for r in rows]
+
+    def delete_records_by_ids(self, record_ids: List[int]) -> int:
+        """Delete specific attendance records by their primary key IDs and clean up empty sessions."""
+        if not record_ids:
+            return 0
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            placeholders = ",".join("?" for _ in record_ids)
+            cursor.execute(f"DELETE FROM attendance WHERE id IN ({placeholders})", record_ids)
+            deleted = cursor.rowcount
+            # Remove any sessions that have no attendance records remaining
+            cursor.execute("""
+                DELETE FROM attendance_sessions
+                WHERE id NOT IN (SELECT DISTINCT session_id FROM attendance)
+            """)
+            conn.commit()
+            return deleted
+
+    def clear_all_attendance(self) -> int:
+        """Delete all attendance records and sessions from the database."""
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) AS total FROM attendance")
+            row = cursor.fetchone()
+            total = row["total"] if row else 0
+            cursor.execute("DELETE FROM attendance")
+            cursor.execute("DELETE FROM attendance_sessions")
+            conn.commit()
+            return total
+
+
+class SecurityAuditRepository:
+    def __init__(self, db_conn: DatabaseConnection):
+        self.db = db_conn
+
+    def log_audit(
+        self,
+        reason: str,
+        matched_student_id: Optional[int] = None,
+        matched_name: Optional[str] = None,
+        liveness_score: float = 0.0,
+        texture_score: float = 0.0,
+        reflectance_score: float = 0.0,
+        entropy_score: float = 0.0,
+        motion_score: float = 0.0,
+        snapshot_path: Optional[str] = None,
+        ir_snapshot_path: Optional[str] = None
+    ) -> int:
+        """Log an intercepted spoof attempt with forensic snapshot paths."""
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO security_audits (
+                    timestamp, matched_student_id, matched_name, reason,
+                    liveness_score, texture_score, reflectance_score, entropy_score, motion_score,
+                    snapshot_path, ir_snapshot_path
+                )
+                VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    matched_student_id, matched_name, reason,
+                    liveness_score, texture_score, reflectance_score, entropy_score, motion_score,
+                    snapshot_path, ir_snapshot_path
+                )
+            )
+            audit_id = cursor.lastrowid
+            conn.commit()
+            return audit_id
+
+    def get_all_audits(self, limit: int = 150) -> List[Dict[str, Any]]:
+        """Retrieve recent security audit logs."""
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT a.*, s.student_number, s.department, s.year
+                FROM security_audits a
+                LEFT JOIN students s ON a.matched_student_id = s.id
+                ORDER BY a.id DESC
+                LIMIT ?
+                """,
+                (limit,)
+            )
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    def clear_audits(self) -> int:
+        """Clear all forensic audit records."""
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) AS total FROM security_audits")
+            row = cursor.fetchone()
+            total = row["total"] if row else 0
+            cursor.execute("DELETE FROM security_audits")
+            conn.commit()
+            return total
+
+
 
 

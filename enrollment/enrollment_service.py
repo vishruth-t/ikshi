@@ -24,22 +24,30 @@ class EnrollmentService:
         self.detector = detector
         self.sface = sface
 
-    def process_sample(self, frame: np.ndarray) -> Tuple[bool, str, Optional[np.ndarray]]:
+    def process_sample(self, frame: np.ndarray, is_ir: bool = False) -> Tuple[bool, str, Optional[np.ndarray]]:
         """
-        Validate single frame sample, detect face, align/crop face, and extract feature vector.
+        Validate single frame sample (RGB or IR), detect face, align/crop face, and extract feature vector.
         Returns: (success: bool, feedback_message: str, feature_vector: Optional[np.ndarray])
         """
         if frame is None or not self.detector.is_loaded() or not self.sface.is_loaded():
             return False, "Camera feed or recognition model not ready.", None
 
-        faces = self.detector.detect(frame)
-        is_valid, title, subtitle = validate_face_sample(frame, faces[0].bbox if faces else (0,0,0,0), len(faces))
+        # Ensure 3-channel BGR image format for OpenCV DNN processing
+        if len(frame.shape) == 2:
+            proc_frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+        elif len(frame.shape) == 3 and frame.shape[2] == 1:
+            proc_frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+        else:
+            proc_frame = frame
+
+        faces = self.detector.detect(proc_frame)
+        is_valid, title, subtitle = validate_face_sample(proc_frame, faces[0].bbox if faces else (0,0,0,0), len(faces))
         if not is_valid:
             feedback = f"{title}: {subtitle}" if subtitle else title
             return False, feedback, None
 
         detected_face = faces[0]
-        aligned_crop = self.sface.align_crop(frame, detected_face.raw_face_data)
+        aligned_crop = self.sface.align_crop(proc_frame, detected_face.raw_face_data)
         if aligned_crop is None:
             return False, "Failed to align face sample.", None
 
@@ -47,14 +55,23 @@ class EnrollmentService:
         if feature is None:
             return False, "Failed to extract facial data.", None
 
-        return True, "Face captured successfully", feature
+        sensor_name = "IR" if is_ir else "RGB"
+        return True, f"{sensor_name} face sample captured successfully", feature
 
 
-    def register_student_with_embeddings(self, student: Student, features: List[np.ndarray]) -> Tuple[bool, str]:
+    DEFAULT_POSE_TAGS = ["frontal", "left_20", "right_20", "tilt_up", "smile_down"]
+
+    def register_student_with_embeddings(
+        self,
+        student: Student,
+        features: List[np.ndarray],
+        features_ir: Optional[List[np.ndarray]] = None,
+        pose_tags: Optional[List[str]] = None
+    ) -> Tuple[bool, str]:
         """
-        Save student details and list of sample face embeddings to database.
+        Save student details and list of sample face embeddings (RGB and optional IR) to database with multi-angle pose tags.
         """
-        if not features:
+        if not features and not features_ir:
             return False, "No valid face samples provided."
 
         existing = self.student_repo.get_by_number(student.student_number)
@@ -63,27 +80,56 @@ class EnrollmentService:
 
         try:
             created_student = self.student_repo.create(student)
-            for vec in features:
+            tags = pose_tags or self.DEFAULT_POSE_TAGS
+            
+            # 1. Save RGB samples with pose tags
+            for idx, vec in enumerate(features or []):
+                p_tag = tags[idx] if idx < len(tags) else self.DEFAULT_POSE_TAGS[min(idx, len(self.DEFAULT_POSE_TAGS) - 1)]
                 emb = FaceEmbedding(
                     student_id=created_student.id,
                     embedding=vec,
                     model_name="SFace",
                     model_version="2021dec",
-                    metric=settings.similarity_metric
+                    metric=settings.similarity_metric,
+                    pose_tag=p_tag
                 )
                 self.embedding_repo.add_embedding(emb)
 
-            logger.info(f"Successfully registered student '{student.name}' with {len(features)} embeddings.")
-            return True, f"Student '{student.name}' successfully enrolled!"
+            # 2. Save IR samples if provided
+            if features_ir:
+                for idx, vec in enumerate(features_ir):
+                    p_tag = tags[idx] if idx < len(tags) else self.DEFAULT_POSE_TAGS[min(idx, len(self.DEFAULT_POSE_TAGS) - 1)]
+                    emb = FaceEmbedding(
+                        student_id=created_student.id,
+                        embedding=vec,
+                        model_name="SFace-IR",
+                        model_version="2021dec",
+                        metric=settings.similarity_metric,
+                        pose_tag=p_tag
+                    )
+                    self.embedding_repo.add_embedding(emb)
+
+            ir_count = len(features_ir or [])
+            rgb_count = len(features or [])
+            logger.info(
+                f"Successfully registered student '{student.name}' with {rgb_count} RGB and {ir_count} IR multi-angle embeddings."
+            )
+            return True, f"Student '{student.name}' successfully enrolled ({rgb_count} RGB, {ir_count} IR)!"
         except Exception as e:
             logger.error(f"Failed to register student: {e}")
             return False, f"Database error: {e}"
 
-    def re_enroll_student_embeddings(self, student_id: int, features: List[np.ndarray]) -> Tuple[bool, str]:
+    def re_enroll_student_embeddings(
+        self,
+        student_id: int,
+        features: List[np.ndarray],
+        features_ir: Optional[List[np.ndarray]] = None,
+        pose_tags: Optional[List[str]] = None
+    ) -> Tuple[bool, str]:
         """
-        Replace existing face embeddings with new sample features for a registered student.
+        Replace existing face embeddings with new sample features (RGB and optional IR) for a registered student.
         """
-        if not features:
+        if not features and not features_ir:
             return False, "No valid face samples provided."
 
         student = self.student_repo.get_by_id(student_id)
@@ -92,18 +138,39 @@ class EnrollmentService:
 
         try:
             self.embedding_repo.delete_embeddings_for_student(student_id)
-            for vec in features:
+            tags = pose_tags or self.DEFAULT_POSE_TAGS
+            
+            for idx, vec in enumerate(features or []):
+                p_tag = tags[idx] if idx < len(tags) else self.DEFAULT_POSE_TAGS[min(idx, len(self.DEFAULT_POSE_TAGS) - 1)]
                 emb = FaceEmbedding(
                     student_id=student_id,
                     embedding=vec,
                     model_name="SFace",
                     model_version="2021dec",
-                    metric=settings.similarity_metric
+                    metric=settings.similarity_metric,
+                    pose_tag=p_tag
                 )
                 self.embedding_repo.add_embedding(emb)
 
-            logger.info(f"Successfully re-enrolled student '{student.name}' (ID: {student_id}) with {len(features)} embeddings.")
-            return True, f"Face features re-enrolled successfully for '{student.name}'!"
+            if features_ir:
+                for idx, vec in enumerate(features_ir):
+                    p_tag = tags[idx] if idx < len(tags) else self.DEFAULT_POSE_TAGS[min(idx, len(self.DEFAULT_POSE_TAGS) - 1)]
+                    emb = FaceEmbedding(
+                        student_id=student_id,
+                        embedding=vec,
+                        model_name="SFace-IR",
+                        model_version="2021dec",
+                        metric=settings.similarity_metric,
+                        pose_tag=p_tag
+                    )
+                    self.embedding_repo.add_embedding(emb)
+
+            ir_count = len(features_ir or [])
+            rgb_count = len(features or [])
+            logger.info(
+                f"Successfully re-enrolled student '{student.name}' (ID: {student_id}) with {rgb_count} RGB and {ir_count} IR embeddings."
+            )
+            return True, f"Face features re-enrolled for '{student.name}' ({rgb_count} RGB, {ir_count} IR)!"
         except Exception as e:
             logger.error(f"Failed to re-enroll student: {e}")
             return False, f"Database error: {e}"

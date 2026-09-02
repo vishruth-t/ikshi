@@ -13,4 +13,8 @@ logs/*.log
 .DS_Store
 data/*.db-shm
 data/*.db-wal
-
+data/security_audits/*.jpg
+data/avatars/*.jpg
+data/sounds/*.wav
+/tmp/sidebar_*.png
+*.pyc

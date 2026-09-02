@@ -71,3 +71,29 @@ def test_enrollment_re_enroll_nonexistent_student():
     success, msg = service.re_enroll_student_embeddings(999, features)
     assert success is False
     assert "not found" in msg
+
+
+def test_enrollment_register_dual_rgb_and_ir():
+    st_repo = MagicMock(spec=StudentRepository)
+    emb_repo = MagicMock(spec=FaceEmbeddingRepository)
+    detector = MagicMock(spec=FaceDetector)
+    sface = MagicMock(spec=SFaceRecognizer)
+
+    st_repo.get_by_number.return_value = None
+    created_mock = Student(id=2, student_number="STU200", name="Dual Sensor Student")
+    st_repo.create.return_value = created_mock
+
+    service = EnrollmentService(st_repo, emb_repo, detector, sface)
+    rgb_features = [np.random.randn(128).astype(np.float32) for _ in range(5)]
+    ir_features = [np.random.randn(128).astype(np.float32) for _ in range(5)]
+
+    success, msg = service.register_student_with_embeddings(
+        created_mock,
+        features=rgb_features,
+        features_ir=ir_features
+    )
+    assert success is True
+    assert "5 RGB, 5 IR" in msg
+    # 5 RGB + 5 IR = 10 total embeddings saved
+    assert emb_repo.add_embedding.call_count == 10
+

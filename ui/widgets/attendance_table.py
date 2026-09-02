@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QWidget, QHBoxLayout
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QWidget, QHBoxLayout, QPushButton
+from PySide6.QtCore import Qt, Signal
 from typing import List, Dict, Any
 
 TABLE_STYLESHEET = """
@@ -98,6 +98,9 @@ def create_confidence_pill(score: float) -> QWidget:
 
 
 
+from ui.utils.theme import get_table_qss
+from config.settings import settings
+
 class AttendanceTableWidget(QTableWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -110,7 +113,11 @@ class AttendanceTableWidget(QTableWidget):
         self.verticalHeader().setVisible(False)
         self.verticalHeader().setDefaultSectionSize(52)
         self.setShowGrid(False)
-        self.setStyleSheet(TABLE_STYLESHEET)
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str = None):
+        theme = theme_name or getattr(settings, "theme", "dark")
+        self.setStyleSheet(get_table_qss(theme))
 
     def set_data(self, records: List[Dict[str, Any]]):
         self.setRowCount(0)
@@ -123,9 +130,9 @@ class AttendanceTableWidget(QTableWidget):
             id_item.setTextAlignment(Qt.AlignCenter)
             self.setItem(row_idx, 0, id_item)
             
-            # Name
-            name_item = QTableWidgetItem(r.get("name", ""))
-            self.setItem(row_idx, 1, name_item)
+            # Name with Avatar
+            from ui.widgets.student_table import create_avatar_widget
+            self.setCellWidget(row_idx, 1, create_avatar_widget(r.get("name", ""), r.get("student_number", "")))
             
             # Timestamp (HH:MM:SS)
             raw_time = r.get("marked_at", "")
@@ -157,7 +164,11 @@ class ReportsTableWidget(QTableWidget):
         self.verticalHeader().setVisible(False)
         self.verticalHeader().setDefaultSectionSize(52)
         self.setShowGrid(False)
-        self.setStyleSheet(TABLE_STYLESHEET)
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str = None):
+        theme = theme_name or getattr(settings, "theme", "dark")
+        self.setStyleSheet(get_table_qss(theme))
 
     def set_data(self, records: List[Dict[str, Any]]):
         self.setRowCount(0)
@@ -197,5 +208,111 @@ class ReportsTableWidget(QTableWidget):
             # Confidence Pill
             sim = float(r.get("similarity", 0.0))
             self.setCellWidget(row_idx, 8, create_confidence_pill(sim))
+
+
+class SecurityAuditsTableWidget(QTableWidget):
+    inspect_evidence_signal = Signal(dict) # Emits audit record dictionary
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setColumnCount(6)
+        self.setHorizontalHeaderLabels([
+            "TIMESTAMP", "SUSPECTED STUDENT", "DEPARTMENT", "SPOOF THREAT / REASON", "LIVENESS SCORE", "EVIDENCE"
+        ])
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
+        self.horizontalHeader().setSectionResizeMode(5, QHeaderView.Fixed)
+        self.setColumnWidth(0, 150)
+        self.setColumnWidth(5, 140)
+
+        self.setSelectionBehavior(QTableWidget.SelectRows)
+        self.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.setAlternatingRowColors(True)
+        self.verticalHeader().setVisible(False)
+        self.verticalHeader().setDefaultSectionSize(52)
+        self.setShowGrid(False)
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str = None):
+        theme = theme_name or getattr(settings, "theme", "dark")
+        self.setStyleSheet(get_table_qss(theme))
+
+    def set_audits(self, audits: List[Dict[str, Any]]):
+        self.setRowCount(0)
+        for row_idx, a in enumerate(audits):
+            self.insertRow(row_idx)
+            self.setRowHeight(row_idx, 52)
+
+            # 0. Timestamp
+            raw_time = str(a.get("timestamp", ""))
+            display_time = raw_time.replace("T", " ")[:19]
+            ts_item = QTableWidgetItem(display_time)
+            ts_item.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row_idx, 0, ts_item)
+
+            # 1. Suspected Student
+            name = a.get("matched_name") or "Unknown"
+            num = a.get("student_number")
+            stu_str = f"{name} ({num})" if num else name
+            self.setItem(row_idx, 1, QTableWidgetItem(stu_str))
+
+            # 2. Department
+            dept = a.get("department") or "N/A"
+            dept_item = QTableWidgetItem(dept)
+            dept_item.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row_idx, 2, dept_item)
+
+            # 3. Spoof Threat / Reason Pill
+            reason = a.get("reason", "Spoof Detected")
+            reason_item = QTableWidgetItem(reason)
+            reason_item.setForeground(Qt.GlobalColor.yellow)
+            self.setItem(row_idx, 3, reason_item)
+
+            # 4. Liveness Score
+            lscore = float(a.get("liveness_score", 0.0))
+            score_container = QWidget()
+            s_layout = QHBoxLayout(score_container)
+            s_layout.setContentsMargins(4, 4, 4, 4)
+            s_layout.setAlignment(Qt.AlignCenter)
+            s_pill = QLabel(f"{int(lscore * 100)}% Live (FAIL)")
+            s_pill.setStyleSheet("""
+                background-color: #2D1515;
+                color: #F85149;
+                border: 1px solid #DA3633;
+                border-radius: 4px;
+                padding: 3px 8px;
+                font-size: 11px;
+                font-weight: 600;
+            """)
+            s_layout.addWidget(s_pill)
+            self.setCellWidget(row_idx, 4, score_container)
+
+            # 5. Evidence Action Button
+            btn_container = QWidget()
+            b_layout = QHBoxLayout(btn_container)
+            b_layout.setContentsMargins(4, 4, 4, 4)
+            b_layout.setAlignment(Qt.AlignCenter)
+
+            has_snap = bool(a.get("snapshot_path") or a.get("ir_snapshot_path"))
+            btn_inspect = QPushButton("Inspect Snapshots" if has_snap else "View Metrics")
+            btn_inspect.setStyleSheet("""
+                QPushButton {
+                    background-color: #21262D;
+                    color: #cba6f7;
+                    border: 1px solid #30363D;
+                    padding: 5px 10px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    font-weight: 600;
+                }
+                QPushButton:hover {
+                    background-color: #30363D;
+                    border-color: #cba6f7;
+                }
+            """)
+            btn_inspect.clicked.connect(lambda _, audit=a: self.inspect_evidence_signal.emit(audit))
+            b_layout.addWidget(btn_inspect)
+            self.setCellWidget(row_idx, 5, btn_container)
+
 
 

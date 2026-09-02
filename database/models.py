@@ -22,6 +22,7 @@ class FaceEmbedding:
     model_name: str = "SFace"
     model_version: str = "2021dec"
     metric: str = "cosine"
+    pose_tag: str = "frontal"
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
 @dataclass
@@ -41,6 +42,8 @@ class Attendance:
     marked_at: str = field(default_factory=lambda: datetime.now().isoformat())
     status: str = "Present"
     similarity: float = 0.0
+    liveness_score: Optional[float] = None
+    liveness_passed: Optional[bool] = None
 
 @dataclass
 class RecognitionResult:
@@ -52,3 +55,24 @@ class RecognitionResult:
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     bbox: Optional[tuple] = None # (x, y, w, h)
     confirmed: bool = False
+    liveness_score: Optional[float] = None
+    liveness_passed: Optional[bool] = None
+    liveness_status: str = "disabled" # "disabled", "checking", "passed", "failed"
+    liveness_message: str = ""
+    ir_bbox: Optional[tuple] = None
+    matched_pose: Optional[str] = None
+
+@dataclass
+class SecurityAudit:
+    id: Optional[int] = None
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    matched_student_id: Optional[int] = None
+    matched_name: Optional[str] = None
+    reason: str = ""
+    liveness_score: float = 0.0
+    texture_score: float = 0.0
+    reflectance_score: float = 0.0
+    entropy_score: float = 0.0
+    motion_score: float = 0.0
+    snapshot_path: Optional[str] = None
+    ir_snapshot_path: Optional[str] = None

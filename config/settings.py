@@ -25,7 +25,8 @@ from config.constants import DEFAULT_ACADEMIC_YEARS, DEFAULT_DEPARTMENTS
 
 @dataclass
 class AppSettings:
-    app_name: str = "ikshi"
+    BASE_DIR: str = BASE_DIR
+    app_name: str = "IKSHI"
     default_academic_year: str = DEFAULT_ACADEMIC_YEARS[1] # 2025–26 default
 
     default_department: str = DEFAULT_DEPARTMENTS[0] # Computer Science & Engineering default
@@ -52,13 +53,31 @@ class AppSettings:
     min_face_size: int = 60 # minimum width/height in pixels
     blur_threshold: float = 35.0 # Laplacian variance minimum
 
+    enable_ir_liveness: bool = True # Active default for IR anti-spoofing
+    ir_camera_index: int = 2 # Default index for Windows Hello / V4L2 IR sensor (e.g. /dev/video2)
+    ir_camera_source: str = "2"
+    ir_liveness_threshold: float = 0.60 # Normalized threshold (0.0 to 1.0)
+    ir_fov_scale_x: float = 1.0 # FOV alignment scaling factor
+    ir_fov_scale_y: float = 1.0
+    ir_offset_x: int = 0 # FOV alignment pixel offset
+    ir_offset_y: int = 0
+    enable_sound_chime: bool = True # Play subtle audio confirmation on verified attendance
+    theme: str = "dark" # "dark" or "light"
 
     def get_capture_source(self):
-        """Returns int device index or str stream URL for OpenCV VideoCapture."""
+        """Returns int device index or str stream URL for RGB OpenCV VideoCapture."""
         src = str(self.camera_source).strip() if self.camera_source else str(self.camera_index)
         if src.isdigit():
             return int(src)
         return src
+
+    def get_ir_capture_source(self):
+        """Returns int device index or str stream URL for secondary IR OpenCV VideoCapture."""
+        src = str(self.ir_camera_source).strip() if self.ir_camera_source else str(self.ir_camera_index)
+        if src.isdigit():
+            return int(src)
+        return src
+
 
     def save(self, filepath: str = CONFIG_PATH):
         """Save settings to JSON file with relative portable paths."""
