@@ -176,28 +176,4 @@ All 51 unit and integration tests verify:
 1. **Feature Vectors Only**: Raw facial images and student photos are never saved to disk. Only 128-dimensional floating point vectors are stored.
 2. **Local Isolation**: All recognition and database operations are executed strictly on the local machine with no telemetry or external network calls.
 3. **Data Deletion**: Disabling or deleting a student record removes all associated biometric feature vectors.
-```bash
-import cv2
 
-def scan_cameras(max_tested=5):
-    print("--- Scanning Camera Devices on Windows ---")
-    for idx in range(max_tested):
-        # 1. Try Media Foundation (Best for Windows IR / Windows Hello)
-        cap_msmf = cv2.VideoCapture(idx, cv2.CAP_MSMF)
-        if cap_msmf.isOpened():
-            ret, frame = cap_msmf.read()
-            if ret and frame is not None:
-                print(f"[FOUND] Index {idx} opens with cv2.CAP_MSMF (Shape: {frame.shape})")
-            cap_msmf.release()
-        
-        # 2. Try DirectShow
-        cap_dshow = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
-        if cap_dshow.isOpened():
-            ret, frame = cap_dshow.read()
-            if ret and frame is not None:
-                print(f"[FOUND] Index {idx} opens with cv2.CAP_DSHOW (Shape: {frame.shape})")
-            cap_dshow.release()
-
-if __name__ == "__main__":
-    scan_cameras()
-```
