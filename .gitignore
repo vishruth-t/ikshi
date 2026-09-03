@@ -18,3 +18,4 @@ data/avatars/*.jpg
 data/sounds/*.wav
 /tmp/sidebar_*.png
 *.pyc
+data/attendance.db
